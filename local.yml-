@@ -1,0 +1,34 @@
+---
+- hosts: all
+  connection: local
+  gather_facts: 1
+  roles:
+  - common
+
+  tasks:
+  # - debug:
+  #     msg: >-
+  #       {{ item.key | regex_replace('^/', '') | regex_replace('.j2$', '') }}.j2
+  #       {{ item.key }}
+  #   with_dict: "{{ files }}"
+
+  - debug:
+      msg: >-
+        {{ item }}
+    with_fileglob:
+    - "templates/etc/*.j2"
+
+  - debug:
+      msg: >-
+        {{ lookup('fileglob', 'templates/' + ('*/' * item) +  '*.j2') }}
+    # vars:
+    vars:
+    with_items: "{{ range(recurse) }}"
+
+  - name:
+    when: 0
+    vars:
+      content: |
+        {{ lookup('template', item.key ) }}
+    ansible.builtin.include_tasks: tasks/file.yml
+    with_dict: "{{ files }}"

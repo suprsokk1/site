@@ -1,0 +1,56 @@
+---
+- meta: noop
+  vars: &escalate
+    become: >-
+      {% if not ansible_env.HOME in item.key %}
+      1
+      {% else %}
+      0
+      {% endif %}
+
+- set_fact: content="{{ lookup('template', template ) }}"
+  when: content is not defined
+  vars:
+    template: "{{ item.key | regex_replace('^/', '') | regex_replace('.j2$', '') }}.j2"
+
+- <<: *escalate
+  when: src is not defined
+  vars:
+    template: >-
+      {{ item.key | regex_replace('^/', '') | regex_replace('.j2$', '') }}.j2
+  copy:
+    dest: >-
+      {{ item.key }}
+    content: >-
+      {{ item.value }}
+
+- <<: *escalate
+  when: src is not defined
+  copy:
+    dest: >-
+      {{ item.key }}
+    content: >-
+      {{ item.value }}
+
+- <<: *escalate
+  when: src is defined
+  copy:
+    dest: >-
+      {{ item.key }}
+    src: >-
+      {{ item.value }}
+
+- <<: *escalate
+  file:
+    state: directory
+    dest: >-
+      {{ item.key | dirname }}
+
+- <<: *escalate
+  file:
+    dest: >-
+      {{ item.key }}
+    mode: >-
+      {% if item.key.endswith('sh') %}
+      '0700'
+      {% endif %}

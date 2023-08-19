@@ -1,0 +1,11 @@
+---
+- hosts: localhost
+  become: 0
+  become_enabled: 0
+  gather_facts: 1
+  connection: local
+  roles:
+  - common
+  - homebrew
+  tasks:
+  - meta: noop

@@ -1,0 +1,4 @@
+# vars/all.yml
+---
+packages:
+- ntpdate

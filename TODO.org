@@ -1,0 +1,13 @@
+#+title: TODO
+* TODO configure vpn
+* TODO role: laptop
+* DONE .gitignore
+* TODO init.b1s.no git https repo
+* TODO CACHEDIR.TAG
+* TODO umask =077=
+* TODO ssh config [0/3]
+- [ ] disable root login
+- [ ] change default port
+- [ ] install endlessh on port 22
+* TODO osqueryc
+* TODO baku :bookmarks:pip:

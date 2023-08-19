@@ -1,0 +1,38 @@
+{#-*- mode: conf -*-#}
+MAIL_DIR          /var/spool/mail
+
+HOME_MODE         0700
+PASS_MAX_DAYS     99999
+PASS_MIN_DAYS     0
+PASS_WARN_AGE     7
+UID_MIN           1000
+UID_MAX           60000
+SYS_UID_MIN       201
+SYS_UID_MAX       999
+SUB_UID_MIN       524288
+SUB_UID_MAX       600100000
+SUB_UID_COUNT     65536
+GID_MIN           1000
+GID_MAX           60000
+SYS_GID_MIN       201
+SYS_GID_MAX       999
+SUB_GID_MIN       524288
+SUB_GID_MAX       600100000
+SUB_GID_COUNT     65536
+ENCRYPT_METHOD    YESCRYPT
+USERGROUPS_ENAB   yes
+CREATE_HOME       yes
+FORCE_SHADOW      no
+HMAC_CRYPTO_ALGO  SHA512
+
+{% if force_shadow is defined %}
+FORCE_SHADOW    {{ force_shadow }}
+{% else %}
+FORCE_SHADOW    no
+{% endif %}
+
+{% if umask is defined %}
+UMASK             {{ umask }}
+{% else %}
+UMASK             022
+{% endif %}

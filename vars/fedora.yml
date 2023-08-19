@@ -1,0 +1,4 @@
+# vars/rhel.yml
+---
+packages:
+- yum
