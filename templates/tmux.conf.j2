@@ -1,0 +1,69 @@
+#-* - mode: conf[tmux] -*-
+set -g base-index 1
+
+# https://www.guyrutenberg.com/2021/07/02/tmux-wayland-clipboard-integration/
+# catch mouse events + copy mode on scroll
+set -s copy-command 'tee --append /run/user/$EUID/clipboard | wl-copy'
+set mouse
+
+## plugins ##
+set -g @catppuccin_flavor 'latte'
+set -g @plugin 'tmux-plugins/tpm'
+set -g @plugin 'tmux-plugins/tmux-sensible'
+set -g @plugin 'catppuccin/tmux'
+set -g @plugin 'rickstaa/tmux-notify'
+
+# fzf plugins
+set -g @plugin 'wfxr/tmux-fzf-url'
+set -g @plugin 'roosta/tmux-fuzzback'
+
+
+# backup: set-option -sa terminal-overrides ",xterm:Tc"
+set-option -sa terminal-overrides ",xterm:Tc"
+set-option -sa terminal-features ',rxvt-unicode-256color:clipboard'
+
+set-option -g update-environment "DISPLAY WAYLAND_DISPLAY SWAYSOCK SSH_AUTH_SOCK"
+
+# hooks
+set-hook -g after-split-window "select-layout tiled"
+set-hook -g after-kill-pane    "select-layout tiled"
+
+# set -s paste-command 'wl-paste'
+# set -s set-clipboard on
+# set -s set-clipboard external
+# set -s set-clipboard off
+
+
+# disable
+unbind C-b
+
+set -g prefix C-Space
+bind C-Space send-prefix
+
+run '~/.local/tmux/plugins/tpm/tpm'
+
+bind -n M-Tab select-pane -t'{last}'
+bind -n C-Tab select-pane -t\! # last pane
+bind -n C-\\ split-window
+bind  C-s setw synchronize-panes
+
+
+bind -n C-1 select-window -t1
+bind -n C-2 select-window -t2
+bind -n C-3 select-window -t3
+bind -n C-4 select-window -t4
+
+
+bind u display-popup -E "sh -c 'tmux capturep -p -S - | fzf --ansi '"
+bind p display-popup -E "sh -c 'tmux capturep -p -S - | fzf --ansi | xargs -I, -0 tmux send-keys '\'','\''"
+
+bind -n M-y pipe-pane -I "wl-paste"
+bind -n C-z resize-pane -Z
+
+set -s command-alias[0] hook='-s set-hook'
+set -s command-alias[1] cap="capture-pane -p -S -"
+set -s command-alias[2] capp="capture-pane -p -S - -t'{prev}'"
+set -s command-alias[3] capl="capture-pane -p -S - -t'{left} "
+set -s command-alias[4] capr="capture-pane -p -S - -t'{right}"
+
+bind r source $HOME/.config/tmux/tmux.conf

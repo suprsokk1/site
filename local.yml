@@ -1,11 +1,50 @@
 ---
 - hosts: localhost
-  become: 0
-  become_enabled: 0
   gather_facts: 1
-  connection: local
-  roles:
-  - common
-  - homebrew
+  vars:
   tasks:
-  - meta: noop
+
+  - register: collections
+    copy:
+      dest: >-
+        {{ ansible_env.ANSIBLE_HOME }}/requirements.yml
+      content: |
+        collections:
+        - name: community.general
+        - name: community.digitalocean
+        - name: pfsensible.core
+
+  - raw: ansible-galaxy collection install -r {{ collections.dest }}
+
+- hosts: localhost
+  gather_facts: 1
+  vars:
+    _: "{{ ansible_env }}"
+
+  tasks:
+  - pip:
+      name: meta-package-manager
+      state: present
+
+  - shell:
+      cmd: >-
+        mpm freeze packages/{{ _.HOSTNAME }}.toml
+    args:
+      executable: /bin/bash
+      creates: "{{ _.ANSIBLE_HOME }}/packages/{{ _.HOSTNAME }}.toml"
+      chdir: "{{ _.ANSIBLE_HOME }}"
+
+- hosts: localhost
+  gather_facts: 1
+  vars:
+  tasks:
+
+  - ansible.builtin.cron:
+      name: ANSIBLE_HOME
+      env: yes
+      job: "{{ ansible_env.ANSIBLE_HOME }}"
+
+  - ansible.builtin.cron:
+      name: ansible-pull
+      hour: "*/2"
+      job: ansible-pull --checkout master --url https://github.com/suprsokk1/site.git

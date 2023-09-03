@@ -1,0 +1,23 @@
+- template: src=service.j2 dest="{{ dest }}"
+  with_items: "{{ services }}"
+  vars:
+    service: >-
+      {{ item }}
+    dest: >-
+      {{ ansible_env.HOME }}/.local/systemd/user/{{ item.name }}.service
+  register: install
+
+
+- name: reload
+  when: install is defined
+  systemd:
+    daemon_reload: 1
+    scope: user
+
+- name: Manage services.
+  systemd:
+    unit: "{{ item.name }}.service"
+    enabled: 1
+    state: started
+    scope: "{{ item.scope }}"
+  with_items: "{{ services }}"

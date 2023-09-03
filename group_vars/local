@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# set foo bar
+# printf '{"%s":"%s"}' $* | jq --monochrome-output -c
+# print '"foo":"bar"'
+
+REGEX_CIDR='(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}'
+cidr() {
+    ip -4 -json route show |
+        grep -oP -- "$REGEX_CIDR"'[^"]+' |
+        sed -E 's|\.|_|g;s|/|__|;s|.*|"cidr_\0": true,|' |
+        head -c -2
+
+}
+
+print() {
+    printf '%s' '{"_meta":{ "hostvars": {"localhost":{' "$@" '}}}}' |
+        jq --monochrome-output -c
+}
+
+# print
+set -o errexit -o pipefail
+
+# print "$(cidr)"
+# print '{"foo":"bar"}'
+print '"foo":"bar"'

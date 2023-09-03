@@ -1,0 +1,8 @@
+---
+- hosts: localhost
+  vars:
+  pre_tasks:
+  tasks:
+  - pip:
+      name: meta-package-manager
+      state: present

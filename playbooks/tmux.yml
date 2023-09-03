@@ -1,0 +1,18 @@
+---
+- hosts: localhost
+  gather_facts: 0
+
+  module_defaults:
+    ansible.builtin.template:
+      validate: >-
+        strace -s9999 -f -o tmux.strace tmux -f %s -c true
+
+  vars:
+    dest: ~/.config/tmux/tmux.conf
+
+  tasks:
+  - copy:
+      dest: ~/.tmux.conf
+      content: "source-file {{ dest }}"
+
+  - template: src=tmux.conf.j2 dest="{{ dest }}"
