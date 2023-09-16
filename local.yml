@@ -1,0 +1,14 @@
+# -*- mode: yaml -*-
+---
+- hosts: localhost
+  connection: local
+  gather_facts: 0
+  tasks:
+  - raw: ansible-galaxy install -r requirements.yml
+    ignore_errors: 1
+
+- hosts: localhost
+  connection: local
+  gather_facts: 1
+  tasks:
+  - ping:

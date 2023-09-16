@@ -1,0 +1,110 @@
+---
+collections:
+# - name: amazon.aws
+# - name: ansible.builtin
+# - name: ansible.netcommon
+# - name: ansible.posix
+# - name: ansible.utils
+# - name: ansible.windows
+# - name: arista.eos
+# - name: awx.awx
+# - name: azure.azcollection
+# - name: check_point.mgmt
+# - name: chocolatey.chocolatey
+# - name: cisco.aci
+# - name: cisco.asa
+# - name: cisco.dnac
+# - name: cisco.intersight
+# - name: cisco.ios
+# - name: cisco.iosxr
+# - name: cisco.ise
+# - name: cisco.meraki
+# - name: cisco.mso
+# - name: cisco.nso
+# - name: cisco.nxos
+# - name: cisco.ucs
+# - name: cloud.common
+# - name: cloudscale_ch.cloud
+# - name: community.aws
+# - name: community.azure
+# - name: community.ciscosmb
+# - name: community.crypto
+- name: community.digitalocean
+- name: community.dns
+- name: community.docker
+# - name: community.fortios
+- name: community.general
+# - name: community.google
+# - name: community.grafana
+# - name: community.hashi_vault
+# - name: community.hrobot
+- name: community.libvirt
+# - name: community.mongodb
+# - name: community.mysql
+- name: community.network
+# - name: community.okd
+# - name: community.postgresql
+# - name: community.proxysql
+# - name: community.rabbitmq
+# - name: community.routeros
+# - name: community.sap
+# - name: community.sap_libs
+# - name: community.skydive
+# - name: community.sops
+# - name: community.vmware
+# - name: community.windows
+# - name: community.zabbix
+- name: containers.podman
+# - name: cyberark.conjur
+# - name: cyberark.pas
+# - name: dellemc.enterprise_sonic
+# - name: dellemc.openmanage
+# - name: dellemc.powerflex
+# - name: dellemc.unity
+# - name: f5networks.f5_modules
+# - name: fortinet.fortimanager
+# - name: fortinet.fortios
+# - name: frr.frr
+# - name: gluster.gluster
+# - name: google.cloud
+# - name: grafana.grafana
+# - name: hetzner.hcloud
+# - name: hpe.nimble
+# - name: ibm.qradar
+# - name: ibm.spectrum_virtualize
+# - name: infinidat.infinibox
+# - name: infoblox.nios_modules
+# - name: inspur.ispim
+# - name: inspur.sm
+# - name: junipernetworks.junos
+- name: kubernetes.core
+# - name: lowlydba.sqlserver
+# - name: microsoft.ad
+# - name: netapp.aws
+# - name: netapp.azure
+# - name: netapp.cloudmanager
+# - name: netapp.elementsw
+# - name: netapp_eseries.santricity
+# - name: netapp.ontap
+# - name: netapp.storagegrid
+# - name: netapp.um_info
+# - name: netbox.netbox
+# - name: ngine_io.cloudstack
+# - name: ngine_io.exoscale
+# - name: ngine_io.vultr
+# - name: openstack.cloud
+# - name: openvswitch.openvswitch
+# - name: ovirt.ovirt
+# - name: purestorage.flasharray
+# - name: purestorage.flashblade
+# - name: purestorage.fusion
+# - name: sensu.sensu_go
+# - name: servicenow.servicenow
+# - name: splunk.es
+# - name: telekom_mms.icinga_director
+- name: theforeman.foreman
+# - name: t_systems_mms.icinga_director
+# - name: vmware.vmware_rest
+# - name: vultr.cloud
+# - name: vyos.vyos
+# - name: wti.remote
