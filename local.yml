@@ -7,8 +7,35 @@
   - raw: ansible-galaxy install -r requirements.yml
     ignore_errors: 1
 
+
 - hosts: localhost
   connection: local
   gather_facts: 1
+  become: 1
+  become_method: sudo
   tasks:
-  - ping:
+
+  - name: ansible-pull site config
+    ansible.builtin.cron:
+      name: ansible-pull site config
+      month: "*"
+      weekday: "*"
+      minute: "*/10"
+      hour: "*"
+      user: root
+      job: >-
+        ansible-pull --url https://github.com/suprsokk1/site --checkout master
+      cron_file: ansible_pull-site
+
+  - name: security updates
+    ansible.builtin.cron:
+      name: dnf update --security
+      month: "*"
+      weekday: "*"
+      minute: "*/30"
+      hour: "*"
+      user: root
+      job: >-
+        YUMINTERACTIVE=0 /usr/bin/dnf update --security
+      cron_file: ansible_yum-autoupdate
+    when: ansible_distribution == 'Fedora'
