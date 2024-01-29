@@ -1,0 +1,31 @@
+---
+- hosts: all
+  gather_facts: 0
+  become: 0
+  module_defaults:
+    include_role:
+      apply:
+        tags: always
+
+  tasks:
+
+  - include_role:
+      name: zsh
+    tags:
+      - dotfiles
+      - shell
+      - tmux
+
+  - include_role:
+      name: tmux
+    tags:
+      - dotfiles
+      - shell
+      - tmux
+
+  - include_role:
+      name: alacritty
+    tags:
+      - dotfiles
+      - shell
+      - alacritty

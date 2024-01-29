@@ -15,3 +15,11 @@ htmlcov
 *[~]
 
 collections/
+
+/*.json
+/*.yml
+/*.yaml
+!/local.yml
+!/local.yaml
+!/_*.yml
+!/_*.yaml

@@ -1,0 +1,4 @@
+---
+font:
+  family: >-
+    {{ lookup('ansible.builtin.pipe', 'fc-list : family | sort | uniq') }}

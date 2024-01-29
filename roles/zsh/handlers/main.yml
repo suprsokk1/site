@@ -1,0 +1,5 @@
+---
+- name: config handler
+  debug:
+    msg: >-
+      tmux handler

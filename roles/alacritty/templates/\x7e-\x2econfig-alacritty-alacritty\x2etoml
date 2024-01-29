@@ -1,0 +1,59 @@
+live_config_reload = true
+
+[cursor]
+color = "green"
+
+[cursor.style]
+blinking = "Always"
+shape = "Block"
+
+[env]
+TERM = "screen-256color"
+
+[font]
+size = 12.0
+
+[font.bold]
+family = "Iosevka"
+style = "Bold"
+
+[font.bold_italic]
+family = "Iosevka"
+style = "Bold Italic"
+
+[font.italic]
+family = "Iosevka"
+style = "Italic"
+
+[font.normal]
+family = "Iosevka"
+style = "Regular"
+
+[[font.colors.enabled]]
+command = ","
+enabled = true
+hyperlinks = true
+post_processing = true
+regex = '(?:(ipfs|ipns|magnet|mailto|gemini|gopher|https|http|news|file|git|ssh|ftp):)[^\u0000-\u001F\u007F-\u009F<>\"\\s{-}\\^⟨⟩`]+'
+
+[font.colors.enabled.mouse]
+enabled = true
+mods = "None"
+
+[font.colors.hints]
+alphabet = "jfkdls;ahgurieowpq"
+
+[scrolling]
+history = 0
+
+[window]
+dynamic_title = true
+opacity = 1.0
+
+[window.padding]
+x = 10
+y = 8
+
+[window.position]
+x = 0
+y = 0

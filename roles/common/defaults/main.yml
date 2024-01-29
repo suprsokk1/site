@@ -1,0 +1,10 @@
+---
+playbook:
+  no_log: 0
+
+system:
+  # default: 022
+  umask: '077'
+
+  # default: 077
+  force_shadow: 'no'

@@ -1,0 +1,6 @@
+---
+dotfiles:
+  tmux:
+    config:
+      dest: ~/.tmux.conf
+      validate: 0

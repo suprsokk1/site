@@ -1,0 +1,6 @@
+---
+config_dest: ~/.config/alacritty/alacritty.toml
+# dotfiles:
+#   alacritty:
+#     config:
+#       dest: ~/.config/alacritty/alacritty.toml

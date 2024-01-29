@@ -1,0 +1,6 @@
+---
+- block:
+  - ansible.builtin.include_role:
+      name: dotfiles
+      tasks_from: install
+  tags: dotfiles

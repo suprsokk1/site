@@ -1,31 +1,28 @@
-PATH = /usr/bin:/usr/sbin
-export PATH
 
-define environ
-PATH=${PATH} HOME=${HOME}
-endef
+PAGER =
+COMPOSEFILE = compose.yml:compose-watch.yml
+COMPOSE_ARGS = $(foreach i,$(subst :, ,${COMPOSEFILE}),-f ${i})
 
-define tmux
-tmux new-window -c ${PWD} \; send '$(call ${1})' Enter
-endef
+# target arguments
+check_args = --check
+install_args =
 
-define ansible-playbook
-env - $(call environ) ansible-playbook $(call playbook)
-endef
+all: show
 
-playbook = local.yml
-playbook = tmp/test.yml
-debug = --tags debug
-check = --check
-install =
+show status: config
 
-all:
-	echo "Usage: make [debug|check|install]"
+install check:
+	ansible-playbook $(call ${@}_args) _dotfiles.yml
 
-ansible-playbook: tmux
-	$(call $^,$@)
+config watch: compose-watch.yml
+	docker compose ${COMPOSE_ARGS} $@
 
-debug check install:
-	env - PATH=${PATH} ansible-pull --checkout HEAD --url ${PWD} $(call $@)
+clean:
+	 rm -v compose-watch.yml
 
-.PHONY: all tmux ansible-playbook debug check install
+compose-watch.yml:
+	./script/docker-compose-watch-helper.sh > $@
+	cat $@
+
+.DELETE_ON_ERROR:
+.EXPORT_ALL_VARIABLES:

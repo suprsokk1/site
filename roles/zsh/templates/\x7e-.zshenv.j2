@@ -1,0 +1,24 @@
+# ~/.zshenv -*- mode: sh[zsh] -*-
+. ~/.profile
+
+# :systemd - import environment
+if command -v systemctl &>/dev/null; then
+    command systemctl --user import-environment PATH
+    command systemctl --user set-environment PYTHONSTARTUP=~/.pythonrc
+fi
+
+EDITOR=emacsclient
+PYTHONSTARTUP=~/.pythonrc
+TERMINAL=screen-256color
+TMPPREFIX=$XDG_RUNTIME_DIR/zsh
+VISUAL=$EDITOR
+XDG_RUNTIME_DIR=/run/user/${UID:-$(command id -u)}
+ZSH=$HOME/src/ohmyzsh
+
+export ALTERNATE_EDITOR
+export EMACS
+export PYTHONSTARTUP
+export SUDO_ASKPASS
+export TERMINAL
+export TMPPREFIX2
+export ZSH

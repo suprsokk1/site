@@ -1,0 +1,11 @@
+- raw: ansible-galaxy collection install -r {{ collections.dest }}
+
+- ansible.builtin.cron:
+    name: ANSIBLE_HOME
+    env: yes
+    job: "{{ ansible_env.ANSIBLE_HOME }}"
+
+- ansible.builtin.cron:
+    name: ansible-pull
+    hour: "*/2"
+    job: ansible-pull --checkout master --url https://github.com/suprsokk1/site.git

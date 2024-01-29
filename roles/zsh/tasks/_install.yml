@@ -1,0 +1,47 @@
+---
+- name: install config
+  register: install
+  notify:
+    - config handler
+  vars:
+    unescaped: >-
+      {{ lookup('ansible.builtin.pipe',  'systemd-escape --unescape ' + systemd_escaped_string) }}
+    dest: >-
+      {{ unescaped | basename | regex_replace('.j2', '') }}
+    template: >-
+      {{ systemd_escaped_string | basename }}
+
+  ansible.builtin.template:
+    backup: true
+    src: "{{ template }}"
+    dest: "{{ dest }}"
+    validate: >-
+      {% if validate %}
+      shellcheck %s
+      {% else %}
+      echo %s
+      {% endif %}
+  with_fileglob: ../templates/*.j2
+  loop_control:
+    loop_var: systemd_escaped_string
+
+- debug: var=install
+
+- name: validate
+  debug:
+    msg: >-
+      {% if install.changed %}
+      Changed
+      {% else %}
+      Unchanged
+      {% endif %}
+      {% if install.failed | default(false) %}
+      Failed
+      {% else %}
+      OK
+      {% endif %}
+
+- name: Execute commands in nodes.
+  when: install.changed
+  shell: >-
+    tmux source-config {{ dest }}

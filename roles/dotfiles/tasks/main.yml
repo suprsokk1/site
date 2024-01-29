@@ -1,0 +1,5 @@
+---
+- name: validate config
+  set_fact: validate=1
+  no_log: 0
+  tags: validate
