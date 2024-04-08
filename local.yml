@@ -1,6 +1,6 @@
 # -*- mode: yaml -*-
 ---
-- hosts: localhost
+- hosts: all
   connection: local
   gather_facts: 0
   tasks:
@@ -8,14 +8,12 @@
     ignore_errors: 1
 
 
-- hosts: localhost
+- hosts: all
   connection: local
   gather_facts: 1
-  become: 1
-  become_method: sudo
   tasks:
-
-  - name: ansible-pull site config
+  - name: ansible-pull site config for cloud intances
+    when: facter_is_virtual
     ansible.builtin.cron:
       name: ansible-pull site config
       month: "*"
@@ -24,18 +22,38 @@
       hour: "*"
       user: root
       job: >-
-        ansible-pull --url https://github.com/suprsokk1/site --checkout master
+        ansible-pull
+        --url https://github.com/suprsokk1/site
+        --checkout main
       cron_file: ansible_pull-site
 
-  - name: security updates
+
+- hosts: fedora
+  connection: local
+  gather_facts: 1
+  tasks:
+  - name: Security updates (download)
+    when: ansible_distribution == 'Fedora'
     ansible.builtin.cron:
-      name: dnf update --security
+      name: "Security updates (download)"
       month: "*"
       weekday: "*"
-      minute: "*/30"
+      minute: "0"
       hour: "*"
+      user: root
+      job: >-
+        YUMINTERACTIVE=0 /usr/bin/dnf update --security --downloadonly
+      cron_file: ansible_yum-autoupdate
+
+  - name: Security updates (install)
+    when: ansible_distribution == 'Fedora'
+    ansible.builtin.cron:
+      name: "Security updates (install)"
+      month: "*"
+      weekday: "*"
+      minute: "0"
+      hour: "15"
       user: root
       job: >-
         YUMINTERACTIVE=0 /usr/bin/dnf update --security
       cron_file: ansible_yum-autoupdate
-    when: ansible_distribution == 'Fedora'

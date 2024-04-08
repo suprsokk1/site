@@ -1,0 +1,10 @@
+# -*- mode: yaml -*-
+---
+- hosts: all
+  connection: local
+  gather_facts: 1
+  become: 0
+  tasks:
+  - debug:
+      msg: >-
+        {{ ansible_facts }}
