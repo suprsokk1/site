@@ -3,8 +3,8 @@ collections:
 # - name: amazon.aws
 # - name: ansible.builtin
 # - name: ansible.netcommon
-# - name: ansible.posix
-# - name: ansible.utils
+- name: ansible.posix
+- name: ansible.utils
 # - name: ansible.windows
 # - name: arista.eos
 # - name: awx.awx
@@ -23,7 +23,7 @@ collections:
 # - name: cisco.nso
 # - name: cisco.nxos
 # - name: cisco.ucs
-# - name: cloud.common
+- name: cloud.common
 # - name: cloudscale_ch.cloud
 # - name: community.aws
 # - name: community.azure
