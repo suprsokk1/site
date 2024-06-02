@@ -1,0 +1,67 @@
+#!/usr/bin/python
+
+import os
+import sys
+from subprocess import run, Popen, PIPE, DEVNULL
+from pathlib import Path
+import json
+import ipaddress
+# from ruamel.YAML import yaml
+
+
+
+def JSON(func):
+    def _decorator(*args, **kwargs):
+        raw = func(*args, **kwargs)
+        try:
+            return json.loads(raw)
+        except Exception as e:
+            return raw
+    return _decorator
+
+
+@JSON
+def shell_command_to_string(cmd: str) -> str:
+    return (run(cmd, shell=True, capture_output=True)
+            .stdout
+            .decode()
+            .rstrip())
+
+
+def dump_file(fname: str):
+    with open(fname) as fd:
+        return fd.read()
+
+
+def hostname():
+    res = (dump_file('/etc/hostname')
+            .rstrip())
+    if not res:
+        ret = shell_command_to_string('hostnamectl hostname')
+    return ret
+
+
+ipinfo = shell_command_to_string("ip -4 -json route show")
+
+iface_online = {i['dev']:i['prefsrc']
+                for i in ipinfo
+                if not "linkdown" in i['flags']}
+
+data = {}
+data['_meta'] = {}
+data['_meta']['hostvars'] = {}
+data['_meta']['hostvars'][hostname()] = {}
+data['_meta']['hostvars'][hostname()]['ansible_user'] = os.getenv('USER')
+data['_meta']['hostvars'][hostname()]['ansible_host'] = (
+    iface_online[[i['dev'] for i in ipinfo if i['dst'] == "default"][0]]
+)
+data['_meta']['hostvars']['localhost'] = data['_meta']['hostvars'][hostname()]
+data['all'] = {}
+data['all']['children'] = ["ungrouped", "local"]
+data['ungrouped'] = {}
+data['ungrouped']['hosts'] = [hostname()]
+data['local'] = {}
+data['local']['hosts'] = ["localhost"]
+
+
+print(json.dumps(data, indent=2))

@@ -1,0 +1,27 @@
+---
+- hosts: all
+  connection: local
+  gather_facts: 0
+  tasks:
+  - raw: ansible-galaxy install -r requirements.yml
+    ignore_errors: 1
+
+- hosts: all
+  connection: local
+  gather_facts: yes
+  become: yes
+  tasks:
+  - name: ansible-pull site config for cloud intances
+    ansible.builtin.cron:
+      name: ansible-pull site config
+      month: "*"
+      weekday: "*"
+      minute: "*/10"
+      hour: "*"
+      user: root
+      job: >-
+        ansible-pull
+        --url https://github.com/suprsokk1/site
+        --checkout main
+      cron_file: ansible_pull
+...
