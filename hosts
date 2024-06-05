@@ -2,14 +2,19 @@
 
 import os
 import sys
-from subprocess import run, Popen, PIPE, DEVNULL
+from subprocess import run
 from pathlib import Path
 import json
 import ipaddress
-# from ruamel.YAML import yaml
+from pathlib import Path
+from functools import lru_cache
+import configparser
+import re
+import distutils.spawn
 
 
 
+@lru_cache
 def JSON(func):
     def _decorator(*args, **kwargs):
         raw = func(*args, **kwargs)
@@ -27,41 +32,181 @@ def shell_command_to_string(cmd: str) -> str:
             .decode()
             .rstrip())
 
-
+@lru_cache
 def dump_file(fname: str):
     with open(fname) as fd:
         return fd.read()
 
-
-def hostname():
+@lru_cache
+def ansible_hostname() -> str:
     res = (dump_file('/etc/hostname')
             .rstrip())
     if not res:
         ret = shell_command_to_string('hostnamectl hostname')
     return ret
 
+@lru_cache
+def git_glob(glob):
+    return (
+        str(_).replace('.git','')
+        for _ in (Path.home().glob(f'{glob.replace(".git","").rstrip("/")}/.git'))
+    )
+
+@lru_cache
+def git_glob(glob):
+    for _ in (Path.home().glob(f'{glob.replace(".git","").rstrip("/")}/.git')):
+        yield str(_).replace('.git', '')
+
+
+@lru_cache
+def git_repos() -> list:
+    for i in range(1, 4):
+        for j in git_glob('/'.join('*' * i)):
+            yield j
+
+def parse_git_config_old(*path, **kwargs):
+    defaults = dict(empty_lines_in_values=True)
+    config = configparser.ConfigParser(**dict(**defaults, **kwargs))
+    p = Path(*path) / ".git/config"
+    text = p.read_text()
+    lines = text.splitlines()
+    def _clean(_):
+        return '.'.join(_.strip('"') for _ in line[1:-1].split())
+
+    for line in lines:
+        if line.startswith("["):
+            section = _clean(line)
+            config[section] = {}
+        elif "=" in line:
+            key, value = line.split("=")
+            config[section][key.rstrip(' ')] = value.lstrip(' ')
+
+    return config
+
+def optx(opt):
+    # print(vars())
+    return opt
+
+def parse_git_config(*path, **kwargs):
+    p = Path(*path) / ".git/config"
+    defaults = dict(empty_lines_in_values=False)
+    c = configparser.RawConfigParser(**dict(**defaults, **kwargs))
+    space = r' *'
+    c.SECTCRE = re.compile(
+        rf'''\[{space}(?P<header>[^]]+?){space}\]''',
+    )
+    c.optionxform = optx
+    c.read(p.absolute())
+    rex = re.compile(r'\w+')
+
+    for s in (_ for _ in c.sections() if '"' in _):
+        t = rex.findall(s)
+        t = '.'.join(t)
+
+        # c[t] = c.pop(s)
+
+    return c
+
+
+
+data = {
+    "_meta": {
+        "hostvars": {}
+    },
+    "all": {
+        "children": [
+            "ungrouped",
+            "local",
+            "vms",
+            "physical"
+        ],
+    },
+    "vms": {
+        "children": [
+            "foreman"
+        ]
+    },
+    "physical": {
+        "children": [
+            "proxmox"
+        ]
+    },
+    "local": {
+        "hosts": [
+            "localhost"
+        ],
+    },
+    "ungrouped": {
+        "hosts": [],
+    },
+    "foreman": {
+        "hosts": []
+    },
+    "proxmox": {
+        "hosts": []
+    },
+}
+
+# put host in correct group
+re_hostname = re.compile(r'''^(?P<full>(?P<hostname>(?P<hostname_base>[a-zA-Z_]+)(?P<hostname_number>\d{1,4})?)(?:.(?P<domain>.*))?)''')
+hostdata = re_hostname.match(ansible_hostname()).groupdict()
+hostname_base = hostdata.get("hostname_base")
+hostname_full = hostdata.get("full")
+hostgroup = data.get(hostname_base, "ungrouped")
+data[hostgroup]["hosts"].append(hostname_full)
+# .get("hosts", []).append()
 
 ipinfo = shell_command_to_string("ip -4 -json route show")
-
 iface_online = {i['dev']:i['prefsrc']
                 for i in ipinfo
                 if not "linkdown" in i['flags']}
 
-data = {}
-data['_meta'] = {}
-data['_meta']['hostvars'] = {}
-data['_meta']['hostvars'][hostname()] = {}
-data['_meta']['hostvars'][hostname()]['ansible_user'] = os.getenv('USER')
-data['_meta']['hostvars'][hostname()]['ansible_host'] = (
-    iface_online[[i['dev'] for i in ipinfo if i['dst'] == "default"][0]]
-)
-data['_meta']['hostvars']['localhost'] = data['_meta']['hostvars'][hostname()]
-data['all'] = {}
-data['all']['children'] = ["ungrouped", "local"]
-data['ungrouped'] = {}
-data['ungrouped']['hosts'] = [hostname()]
-data['local'] = {}
-data['local']['hosts'] = ["localhost"]
+# base facts
+ansible_user = os.getenv('USER')
+ansible_user_dir = os.getenv('HOME')
+ansible_host = iface_online[[i['dev'] for i in ipinfo if i['dst'] == "default"][0]]
 
+# custom facts
+ansible__ip6info = shell_command_to_string("ip -6 -json route show")
+ansible__ip4info = shell_command_to_string("ip -4 -json route show")
+ansible__ip_neighbors = shell_command_to_string("ip -json neigh")
+ansible__git_repos = list(git_repos())
+ansible__executable_rg = distutils.spawn.find_executable("rg")
+ansible__executable_fd = distutils.spawn.find_executable("fd")
+ansible__executable_mpm = distutils.spawn.find_executable("mpm")
+ansible__executable_gron = distutils.spawn.find_executable("gron")
+ansible__executable_ansifilter = distutils.spawn.find_executable("ansifilter")
+ansible__executable_locate = distutils.spawn.find_executable("locate")
+ansible__executable_tailscale = distutils.spawn.find_executable("tailscale")
+ansible__executable_pup = distutils.spawn.find_executable("pup")
+ansible__executable_yj = distutils.spawn.find_executable("yj")
+ansible__executable_jo = distutils.spawn.find_executable("jo")
+ansible__executable_git = distutils.spawn.find_executable("git")
+ansible__executable_python = distutils.spawn.find_executable("python")
+ansible__executable_proxmox_boot_tool = distutils.spawn.find_executable("proxmox-boot-tool")
+
+ansible__executable_foo = distutils.spawn.find_executable("foo")
+ansible__executable_bar = distutils.spawn.find_executable("bar")
+ansible__executable_baz = distutils.spawn.find_executable("baz")
+
+_vars = (vars().copy())
+_ = data['_meta']['hostvars']['localhost'] = data['_meta']['hostvars'][ansible_hostname()] = dict()
+
+_.update({
+    k.replace('ansible__',''):v() if hasattr(v, '__call__') else v
+    for k, v in _vars.items()
+    if k.startswith('ansible_')
+})
+
+# cleanup executable vars
+executable_keyname_prefix = "ansible__executable_"
+
+_.update({"executables": {k.replace(executable_keyname_prefix, ""):v
+                    for k, v in _vars.items()
+                    if k.startswith(executable_keyname_prefix)}})
+
+for key in _.copy():
+    if key.startswith("executable_"):
+        _.pop(key)
 
 print(json.dumps(data, indent=2))
