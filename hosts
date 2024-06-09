@@ -6,11 +6,11 @@ from subprocess import run
 from pathlib import Path
 import json
 import ipaddress
-from pathlib import Path
 from functools import lru_cache
 import configparser
 import re
-import distutils.spawn
+from distutils.spawn import find_executable as exe
+
 
 
 
@@ -32,10 +32,12 @@ def shell_command_to_string(cmd: str) -> str:
             .decode()
             .rstrip())
 
+
 @lru_cache
 def dump_file(fname: str):
     with open(fname) as fd:
         return fd.read()
+
 
 @lru_cache
 def ansible_hostname() -> str:
@@ -45,12 +47,14 @@ def ansible_hostname() -> str:
         ret = shell_command_to_string('hostnamectl hostname')
     return ret
 
+
 @lru_cache
 def git_glob(glob):
     return (
         str(_).replace('.git','')
         for _ in (Path.home().glob(f'{glob.replace(".git","").rstrip("/")}/.git'))
     )
+
 
 @lru_cache
 def git_glob(glob):
@@ -63,6 +67,7 @@ def git_repos() -> list:
     for i in range(1, 4):
         for j in git_glob('/'.join('*' * i)):
             yield j
+
 
 def parse_git_config_old(*path, **kwargs):
     defaults = dict(empty_lines_in_values=True)
@@ -83,9 +88,11 @@ def parse_git_config_old(*path, **kwargs):
 
     return config
 
+
 def optx(opt):
     # print(vars())
     return opt
+
 
 def parse_git_config(*path, **kwargs):
     p = Path(*path) / ".git/config"
@@ -108,15 +115,46 @@ def parse_git_config(*path, **kwargs):
     return c
 
 
+ansible__executable_ip = exe("ip")
+ansible__executable_systemctl = exe("systemctl")
+ansible__executable_rg = exe("rg")
+ansible__executable_nmap = exe("nmap")
+ansible__executable_fd = exe("fd")
+ansible__executable_mpm = exe("mpm")
+ansible__executable_gron = exe("gron")
+ansible__executable_ansifilter = exe("ansifilter")
+ansible__executable_locate = exe("locate")
+ansible__executable_tailscale = exe("tailscale")
+ansible__executable_pup = exe("pup")
+ansible__executable_yj = exe("yj")
+ansible__executable_jo = exe("jo")
+ansible__executable_jq = exe("jq")
+ansible__executable_git = exe("git")
+ansible__executable_python = exe("python")
+ansible__executable_editorconfig = exe("editorconfig")
+ansible__executable_vector = exe("vector")
+ansible__executable_puppet = exe("puppet")
+ansible__executable_qutebrowser = exe("qutebrowser")
+ansible__executable_proxmox_boot_tool = exe("proxmox-boot-tool")
+
+
+rex = re.compile(r'(?P<schema>https?)(?:://)(?P<site>[^/]+|(?P<provider>git(?:hub|lab).com))/(?P<repo>(?P<user>[^/]+)/(?P<name>[^/]+))(?:.git)$')
+raw = shell_command_to_string("git config --local remote.origin.url")
+ansible_pull = rex.match(raw).groupdict()
+
 
 data = {
     "_meta": {
         "hostvars": {}
     },
     "all": {
+        "vars": {
+            "ansible_user": "root",
+        },
         "children": [
             "ungrouped",
             "local",
+            "neighbors",
             "vms",
             "physical"
         ],
@@ -145,6 +183,9 @@ data = {
     "proxmox": {
         "hosts": []
     },
+    "iot": {
+        "hosts": []
+    },
 }
 
 # put host in correct group
@@ -166,34 +207,26 @@ ansible_user = os.getenv('USER')
 ansible_user_dir = os.getenv('HOME')
 ansible_host = iface_online[[i['dev'] for i in ipinfo if i['dst'] == "default"][0]]
 
-# custom facts
-ansible__ip6info = shell_command_to_string("ip -6 -json route show")
-ansible__ip4info = shell_command_to_string("ip -4 -json route show")
-ansible__ip_neighbors = shell_command_to_string("ip -json neigh")
-ansible__git_repos = list(git_repos())
-ansible__executable_rg = distutils.spawn.find_executable("rg")
-ansible__executable_fd = distutils.spawn.find_executable("fd")
-ansible__executable_mpm = distutils.spawn.find_executable("mpm")
-ansible__executable_gron = distutils.spawn.find_executable("gron")
-ansible__executable_ansifilter = distutils.spawn.find_executable("ansifilter")
-ansible__executable_locate = distutils.spawn.find_executable("locate")
-ansible__executable_tailscale = distutils.spawn.find_executable("tailscale")
-ansible__executable_pup = distutils.spawn.find_executable("pup")
-ansible__executable_yj = distutils.spawn.find_executable("yj")
-ansible__executable_jo = distutils.spawn.find_executable("jo")
-ansible__executable_git = distutils.spawn.find_executable("git")
-ansible__executable_python = distutils.spawn.find_executable("python")
-ansible__executable_proxmox_boot_tool = distutils.spawn.find_executable("proxmox-boot-tool")
 
-ansible__executable_foo = distutils.spawn.find_executable("foo")
-ansible__executable_bar = distutils.spawn.find_executable("bar")
-ansible__executable_baz = distutils.spawn.find_executable("baz")
+
+# custom facts
+if ansible__executable_ip:
+    ansible__ip6info = shell_command_to_string("ip -6 -json route show")
+    ansible__ip4info = shell_command_to_string("ip -4 -json route show")
+
+    ansible__ip_neighbors = shell_command_to_string("ip -json neigh")
+    data["neighbors"] = {}
+    data["neighbors"]["hosts"] = [*{_["dst"] for _ in ansible__ip_neighbors}]
+
+ansible__git_repos = list(git_repos())
 
 _vars = (vars().copy())
 _ = data['_meta']['hostvars']['localhost'] = data['_meta']['hostvars'][ansible_hostname()] = dict()
 
 _.update({
-    k.replace('ansible__',''):v() if hasattr(v, '__call__') else v
+    k.replace('ansible__',''):v()
+    if hasattr(v, '__call__')
+    else v
     for k, v in _vars.items()
     if k.startswith('ansible_')
 })
@@ -201,12 +234,15 @@ _.update({
 # cleanup executable vars
 executable_keyname_prefix = "ansible__executable_"
 
-_.update({"executables": {k.replace(executable_keyname_prefix, ""):v
+_.update({
+    "executables": {k.replace(executable_keyname_prefix, ""):v
                     for k, v in _vars.items()
-                    if k.startswith(executable_keyname_prefix)}})
+                    if k.startswith(executable_keyname_prefix)}
+})
 
 for key in _.copy():
     if key.startswith("executable_"):
         _.pop(key)
+
 
 print(json.dumps(data, indent=2))
