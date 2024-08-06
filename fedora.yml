@@ -10,7 +10,6 @@
     - ansible.builtin.dnf: name=cargo,python3-jmespath state=installed
       become: yes
 
-
     - name: Galaxy collections
       become: no
       when: no
@@ -26,23 +25,12 @@
         shell: >-
           ansible-galaxy
           collection
-          install
-          sivel.toiletwater
-
-    # - ansible.builtin.wait_for:
-    #   when" "
-    #     delay: 10
-    #   connection: local
-
+          install sivel.toiletwater
 
   vars:
     _collections:
-    - name: sivel.toiletwater
     # - name: amazon.aws
     # - name: ansible.builtin
-    - name: ansible.netcommon
-    - name: ansible.posix
-    - name: ansible.utils
     # - name: ansible.windows
     # - name: arista.eos
     # - name: awx.awx
@@ -61,25 +49,16 @@
     # - name: cisco.nso
     # - name: cisco.nxos
     # - name: cisco.ucs
-    - name: cloud.common
     # - name: cloudscale_ch.cloud
     # - name: community.aws
-    - name: community.azure
     # - name: community.ciscosmb
     # - name: community.crypto
-    - name: community.digitalocean
-    - name: community.dns
-    - name: community.docker
     # - name: community.fortios
-    - name: community.general
-    - name: community.google
     # - name: community.grafana
     # - name: community.hashi_vault
     # - name: community.hrobot
-    - name: community.libvirt
     # - name: community.mongodb
     # - name: community.mysql
-    - name: community.network
     # - name: community.okd
     # - name: community.postgresql
     # - name: community.proxysql
@@ -115,17 +94,16 @@
     # - name: inspur.ispim
     # - name: inspur.sm
     # - name: junipernetworks.junos
-    - name: kubernetes.core
     # - name: lowlydba.sqlserver
     # - name: microsoft.ad
     # - name: netapp.aws
     # - name: netapp.azure
     # - name: netapp.cloudmanager
     # - name: netapp.elementsw
-    # - name: netapp_eseries.santricity
     # - name: netapp.ontap
     # - name: netapp.storagegrid
     # - name: netapp.um_info
+    # - name: netapp_eseries.santricity
     # - name: netbox.netbox
     # - name: ngine_io.cloudstack
     # - name: ngine_io.exoscale
@@ -139,17 +117,31 @@
     # - name: sensu.sensu_go
     # - name: servicenow.servicenow
     # - name: splunk.es
-    # - name: telekom_mms.icinga_director
-    - name: theforeman.foreman
     # - name: t_systems_mms.icinga_director
+    # - name: telekom_mms.icinga_director
     # - name: vmware.vmware_rest
     # - name: vultr.cloud
     # - name: vyos.vyos
     # - name: wti.remote
+    - name: ansible.netcommon
+    - name: ansible.posix
+    - name: ansible.utils
+    - name: cloud.common
+    - name: community.azure
+    - name: community.digitalocean
+    - name: community.dns
+    - name: community.docker
+    - name: community.general
+    - name: community.google
+    - name: community.libvirt
+    - name: community.network
+    - name: kubernetes.core
+    - name: sivel.toiletwater
+    - name: theforeman.foreman
 
 
 - hosts: all
-  # no_log: yes
+  no_log: yes
   connection: local
   gather_facts: yes
   become: no
@@ -161,15 +153,13 @@
     # review safe for other packages?
     CARGO_FEATURE_PCRE2: 1
 
+  module_defaults:
+    # cron: user="{{ lookup('ansible.builtin.env', 'USER') }}" backup=true
+
+
+
 
   post_tasks:
-
-    - when: true
-      tags: always
-      debug:
-        msg: >-
-          {{ items|json_query('[?zsh_plugin].name')|join(' ') }}
-
     - name: todo
       meta: noop
       vars:
@@ -179,132 +169,228 @@
         c: &common
           register: res
           when: res is successfull
+        l: &loop
+          loop_control:
+            extended: true
+            loop_var: item
 
   tasks:
+    - name: catppuccin / (TODO zsh-users)
+      vars:
+        overrides:
+      tags: git zsh catppuccin
+      block:
 
-    - name: catppuccin / zsh-users
-      tags: git catppuccin
-      with_dict: "{{git_repos}}"
-      loop_control:
-        loop_var: x
-      git: dest={{x.key}} repo={{x.value}}
+      # - file: path="{{item.key|dirname}}" state=directory recurse=yes
+      #   <<: *loop
+      #   no_log: no
+
+      - git: dest="{{item.key}}" repo="{{item.value}}"
+        with_dict: "{{git_repos}}"
+        <<: *loop
+        no_log: no
+
+      - cron: name="{{item.value}}" job="git pull -C {{item.key}} --rebase --autostash" minute="*/{{cron.interval|default('5')}}" user="{{ lookup('ansible.builtin.env', 'USER') }}" backup=true
+        become: no
+        with_dict: "{{git_repos}}"
+        <<: *loop
+        no_log: no
+
+
+      # - cron: name=
+
 
     - name: >-
-        install ripgrep with pcre2 enabled
+        Install ripgrep with PCRE2 enabled
       when: COMMENT
       community.general.cargo:
         name: ripgrep
         state: present
+      no_log: no
       environment:
         CARGO_FEATURE_PCRE2: 1
 
+    - name: Manage user accounts
+      user: name=nemo groups=adm uid=9000
+
+
     - name: >-
-        install packages
+        Install packages
+      no_log: no
       rescue:
         - meta: noop
       block:
         - community.general.cargo:
             state: present
-            name: "{{ items|json_query('[?crate].name')|default(omit) }}"
+            name: "{{ items|json_query('[?crate].*.name[]')|default(omit) }}"
 
-        - community.general.pipx:
+        - vars:
+            eggs: >-
+              {{ items|json_query('[?egg].*.name[]')|default(omit)  }}
+          when: egg is defined
+          community.general.pipx:
             state: present
-            name: "{{ items|json_query('[?egg].name')|default(omit)  }}"
+            name: "{{eggs}}"
 
 
     - service: name="{{item}}" state="started" enabled=yes
       become: yes
-      loop: "{{ items|json_query('[?service].name')|default(omit) }}"
+      no_log: no
+      loop: "{{ items|json_query('[?service].*.name[]')|default(omit) }}"
 
-    - name: >-
-        set default editor
-      when: COMMENT
-      loop_control:
-        extended: true
-        loop_var: line
-      loop:
-        - ""
-        - "# default editor"
-        - "editor=emacsclient"
-        - "export editor"
-      ansible.builtin.lineinfile:
-        create: yes
-        path: >-
-          {{ansible_user_dir}}/.zshenv
-        state: present
-        insertafter: >-
-          {{ansible_loop.previtem|default(omit)}}
-        line: >-
-          {{line}}
-        validate: /bin/zsh -c 'source %s'
+    - systemd: name="{{item}}" state=stopped enabled=no masked=yes
+      become: yes
+      no_log: no
+      loop: "{{ items|json_query('[?service_disable].*.name[]')|default(omit) }}"
+
 
     - name: >-
         Dotfiles
+      tags: dotfiles
       block:
-        - name: Copies files to remote locations.
-          copy: dest={{item.path}} mode=0640 content={{item.content}}
-          with_items: "{{ items|json_query('[?zsh_plugins]') }}"
+        - name: Install users dotfiles
+          copy: dest="{{item.path}}" mode=0640 content="{{item.content}}" validate="{{item.validate}}"
+          with_items: "{{ items|json_query('[?zsh_plugins].*[]') }}"
 
-    - name: >-
-        ~/.zshrc
-      vars:
-        plugins: "{{ items|json_query('[?zsh_plugin].name')|default(omit) }}"
-      # when: COMMENT
-      ansible.builtin.copy:
-        backup: yes
-        dest: >-
-          {{ansible_user_dir}}/.zshrc
-        content: |
-          export ZSH="$home/.oh-my-zsh"
-          ZSH_THEME="gentoo"
-          DISABLE_UNTRACKED_FILES_DIRTY="true"
 
-          FZF_DEFAULT_OPTS=' --multi --exact --bind '\''ctrl-s:toggle-all'\'' '; export fzf_default_opts
+        - name: ~/.zshrc
+          no_log: no
+          vars:
+            _validate: /bin/zsh -c 'grep -w -- "=emacsclient" %s && source %s'
+            _dest: "{{lookup('env', 'HOME')}}/.zshrc"
+            _content: |
+              export ZSH="$HOME/.oh-my-zsh"
+              export ZSH_THEME="gentoo"
+              DISABLE_UNTRACKED_FILES_DIRTY="true"
 
-          plugins={{ items|json_query('[?zsh_plugin].name')|join(' ') }}
-          source $ZSH/oh-my-zsh.sh
+              EDITOR='emacsclient -nw'; export EDITOR
+              FZF_DEFAULT_OPTS=' --multi --exact --bind '\''ctrl-s:toggle-all'\'' '; export FZF_DEFAULT_OPTS
 
-    - name: >-
-        set host facts from a task
-      set_fact:
-        script_path: "{{ansible_user_dir}}/.script"
+              {% for alias in (items | json_query('[?shell_alias].*[]')) %}
+              alias -- {{alias.name}}='{{alias.command}}'
+              {% endfor %}
+
+              plugins=({{ items | json_query('[?zsh_plugin].*.name[]') | join(' ') }})
+
+              source $ZSH/oh-my-zsh.sh
+          ansible.builtin.copy:
+            backup: yes
+            validate: "{{_validate}}"
+            dest: "{{_dest}}"
+            content: "{{_content}}"
+
+
+
+    - set_fact: script_path={{lookup('env', 'HOME')}}/.script
 
     - stat: path="{{script_path}}"
       register: script
 
-    - file: path={{ansible_user_dir}}/.local/share/catppuccin state=directory recurse=yes
-
-
-    # - name: >-
-    #     add common paths to users zshenv
-    #   loop_control:
-    #     extended: true
-    #     loop_var: path
-    #   with_fileglob:
-    #     - {{ansible_user_dir}}/*/bin
-    #     - {{ansible_user_dir}}/.*/bin
-    #     - {{ansible_user_dir}}/.local/share/pipx/venvs/*/bin
-    #     - {{ansible_user_dir}}/.emacs.d/bin
-    #     - {{ansible_user_dir}}/bin
-    #   ansible.builtin.lineinfile:
-    #     create: yes
-    #     path: >-
-    #       {{ansible_user_dir}}/.zshenv
-    #     state: present
-    #     insertafter: >-
-    #       ^path+=({{ansible_loop.previtem|default(omit)}})
-    #     line: >-
-    #       path+=({{path}})
-    #     validate: /bin/zsh -c source %s
+    - file: path={{lookup('env', 'HOME')}}/.local/share/catppuccin state=directory recurse=yes
 
 
   vars:
+    sysctl:
+      net.ipv4.tcp_rmem: >-
+        4096 65536 16777216
+
+    shims:
+      dir: ~/.shims
+
+      paths:
+        - "~/.local/share/pipx/venvs/*/bin"
+
     __git_repos:
+
       com:
+        gitlab:
+          jlecomte: [ansible/ansible-roster]
         github:
           catppuccin: [dunst,emacs,alacritty,sway,waybar]
+          systemd-cron: [systemd-cron-next]
+
 
     items:
+
+      - TODO:
+          name: Install and configure tailscale
+
+      - TODO:
+          name: Install and configure tailscale
+
+      - TODO:
+          name: Parse ORG files with python
+
+      - TODO:
+          name: Import cronjobs
+
+      - TODO:
+          name: Import FireFox bookmarks
+
+      - TODO:
+          name: Import FireFox bookmarks as ORG files
+          desc: |
+            F.ex. in folder ~/org/roam/bookmarks
+
+      - TODO:
+          name: before save file hook validate file
+
+      - TODO:
+          name: Install osquery
+
+      - TODO:
+          name: Replace stowed files with "regular file"
+
+      - TODO:
+          name: Import Emacs yasnippets
+
+      - TODO:
+          name: External (f.ex. from terminal) org-capture
+
+      - TODO:
+          name: Inject data into YAML file
+
+      - TODO:
+          name: Terminal URL detection and execution
+
+
+      - TODO:
+          name: Normalize fonts
+          desc:
+            - editor
+            - terminal:
+                - kitty
+                - alacritty
+            - gtk
+            - browser
+
+      - TODO:
+          name: Normalize color theme
+          desc:
+            - editor
+            - terminal:
+                - Env. vars: LS_COLORS, GREP_COLORS ..
+            - gtk
+            - browser:
+                - FireFox
+
+      - TODO:
+          name:
+
+      - TODO:
+          name: zram swap
+
+      - TODO:
+          name: Setup btrfs snapshots with timeshift
+
+      - TODO:
+          name: zsh "directory shortcuts" with "hash -d"
+
+      - TODO:
+          name: zsh default file ext. handler with "alias -s"
+
+      - TODO:
+          name: cfengine like symbols/variables
 
       # - shell_alias:
       #     name: ls
@@ -313,6 +399,94 @@
       # - shell_alias:
       #     name: ls
       #     command: 'exa'
+
+      - TODO:
+          name: install coredns?
+
+      - TODO:
+          name: disable mdns
+          desc: |
+            avahi*
+
+      - TODO:
+          name: DELETEME
+          desc: |
+            # /etc/dnf/dnf.conf
+            [fedora]
+            name=Fedora $releasever - $basearch
+            metalink=https://mirrors.fedoraproject.org/metalink?repo=fedora-$releasever&arch=$basearch
+            gpgkey=https://getfedora.org/static/fedora.gpg
+
+            [updates]
+            name=Fedora $releasever - $basearch - Updates
+            metalink=https://mirrors.fedoraproject.org/metalink?repo=updates-released-f$releasever&arch=$basearch
+            gpgkey=https://getfedora.org/static/fedora.gpg
+
+            :*: The fedora.gpg file contain the gpg keys for the latest Fedora releases https://getfedora.org/security/. To set up a minimal Fedora 37 container:
+
+            cd /var/lib/machines
+            mkdir container-name
+            dnf --releasever=37 --best --setopt=install_weak_deps=False --repo=fedora --repo=updates --installroot=/var/lib/machines/container-name install dhcp-client dnf fedora-release glibc glibc-langpack-en iputils less ncurses passwd systemd systemd-networkd systemd-resolved util-linux vim-default-editor
+
+      - env:
+          name: GDK_THEME
+          value: Adwaita:dark
+
+      - application:
+          name: ydotool
+          rpm: ydotool
+          service: ydotool
+
+      - application:
+          name: vector
+          container: vector
+
+      - journald_namespace:
+          name: user
+          config: |
+            [Journal]
+            #Storage=auto
+            #Compress=yes
+            #Seal=yes
+            #SplitMode=uid
+            #SyncIntervalSec=5m
+            #RateLimitIntervalSec=30s
+            #RateLimitBurst=10000
+            #SystemMaxUse=
+            #SystemKeepFree=
+            #SystemMaxFileSize=
+            #SystemMaxFiles=100
+            #RuntimeMaxUse=
+            #RuntimeKeepFree=
+            #RuntimeMaxFileSize=
+            #RuntimeMaxFiles=100
+            #MaxRetentionSec=
+            #MaxFileSec=1month
+            #ForwardToSyslog=no
+            #ForwardToKMsg=no
+            #ForwardToConsole=no
+            #ForwardToWall=yes
+            #TTYPath=/dev/console
+            #MaxLevelStore=debug
+            #MaxLevelSyslog=debug
+            #MaxLevelKMsg=notice
+            #MaxLevelConsole=info
+            #MaxLevelWall=emerg
+            #LineMax=48K
+            #ReadKMsg=yes
+            #Audit=yes
+
+
+      - keybinding:
+          name: example
+          app: fzf
+
+      - import:
+          name: FireFox bookmarks
+
+      - shell_alias:
+          name: cat
+          command: 'bat'
 
       - shell_alias:
           name: ls
@@ -323,8 +497,8 @@
 
       - fzf:
           env: >-
-            fzf_default_command='fd --type f --hidden --exclude .git'
-            fzf_default_opts=' --reverse --exact --bind '\''ctrl-s:toggle-all'\'' --multi '
+            FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
+            FZF_DEFAULT_OPTS=' --reverse --exact --bind '\''ctrl-s:toggle-all'\'' --multi '
 
             fzf_lines           number of lines fzf takes up excluding padding and margin
             fzf_columns         number of columns fzf takes up excluding padding and margin
@@ -346,8 +520,6 @@
             fzf_preview_left    left position of the preview window
             fzf_preview_lines   number of lines in the preview window
             fzf_preview_columns number of columns in the preview window
-      - service:
-          name: ydotool
 
       - rpm:
           name: tldr
@@ -629,7 +801,6 @@
           name: zlib-ng-compat-devel
       - rpm:
           name: zsh
-
       - crate:
           name: grex
       - crate:
@@ -644,8 +815,6 @@
           name: topgrade
       - crate:
           name: bat
-
-
       - rpm:
           name: qutebrowser
       - rpm:
@@ -729,49 +898,51 @@
 
       #       fzf_default_opts=' --exact --bind '\''ctrl-s:toggle-all'\'' --multi '; export fzf_default_opts
 
-      #       plugins={{ items|json_query('[?zsh_plugin]')|join(' ') }}
+      #       plugins={{ items|qjson_query('[?zsh_plugin].*.name[]')|join(' ') }}
       #       source $ZSH/oh-my-zsh.sh
+
+      - dotfile:
+          name: topgrade
+          path: ~/.jq
+          validate: >-
+            jq `# %s`
+          content: |
+            # iproute2 | $ ip -json route show
+            def net: . as $root |.[]|
+                select(
+                    .dev == ( $root[]|select(.dst == "default") ).dev
+                ) | select(.protocol == "kernel").dst
+            ;
+
+            def _:
+            .[]|
+            with_entries(
+            if .key == "command"
+            then .key = "job"
+            end
+            )
+
+            ;
+
+      - dotfile:
+          name: topgrade
+          path:
+          content: |
+
 
       - dotfile:
           name: waybar style.css
           path: ~/.config/waybar/style.css
           content: |
-              @import "catppuccin/mocha.css";
-              /* @import "catppuccin/themes/mocha.css"; */
-              /* Use the colors in your Waybar style.css. Waybar uses GTK3 CSS. */
+            @import "catppuccin/mocha.css";
+            /* @import "catppuccin/themes/mocha.css"; */
+            /* Use the colors in your Waybar style.css. Waybar uses GTK3 CSS. */
 
-              * {
-                  font-family: UbuntuSansMono Nerd Font Propo;
-                  /* color: @text; */
-                  /* color: @sapphire; */
-                  /* color: @rosewater; */
-                  /* color: @flamingo; */
-                  /* color: @pink; */
-                  /* color: @mauve; */
-                  /* color: @red; */
-                  /* color: @maroon; */
-                  /* color: @peach; */
-                  /* color: @yellow; */
-                  /* color: @green; */
-                  /* color: @teal; */
-                  /* color: @sky; */
-                  /* color: @sapphire; */
-                  color: @blue;
-                  /* color: @lavender; */
-                  /* color: @text; */
-                  /* color: @subtext1; */
-                  /* color: @subtext0; */
-                  /* color: @overlay2; */
-                  /* color: @overlay1; */
-                  /* color: @overlay0; */
-                  /* color: @surface2; */
-                  /* color: @surface1; */
-                  /* color: @surface0; */
-                  /* color: @base; */
-                  /* color: @mantle; */
-                  /* color: @crust; */
+            * {
+            font-family: UbuntuSansMono Nerd Font Propo;
+            color: @blue;
+            }
 
-              }
 
       - dotfile:
           name: sway
@@ -934,13 +1105,13 @@
               font: "San Francisco Display 20";
               show-icons: true;
               combi-modes: "poc,emacs,sway,clipboard,window,drun";
-              combi-hide-mode-prefix: false;
               combi-hide-mode-prefix: true;
             }
 
             window {
                 /* background-color: rgba(100, 100, 100, 100%); */
                 close-on-delete: true;
+                window-hide-active-window: true;
                 window-command: "gh _rofi_window_command";
                 /* background-color: rgba(100, 100, 100, 100%); */
                 /* background-color: var(bg-window); */
@@ -1090,7 +1261,6 @@
                   /* color: @crust; */
 
               }
-
 
       - system_file:
           path: /etc/NetworkManager/conf.d/tun.conf
@@ -1479,11 +1649,21 @@
 
     COMMENT: false
 
+    environment:
+      ls:
+        LS_COLORS: >-
+          # TODO
+
+      grep:
+        GREP_COLORS: >-
+           ms=01;31:mc=01;31:sl=:cx=:fn=35:ln=32:bn=32:se=36
+
     alacritty:
       config:
         live_config_reload: true
         import:
           - ~/opt/catppuccin/alacritty/catppuccin-mocha.toml
+
         env:
           GDK_DPI_SCALE: "1.0"
           GDK_SCALE: "1.0"
@@ -1491,8 +1671,10 @@
           SHELL: /bin/zsh
           LANG: en_US.UTF-8
           LC_ALL: nb_NO.UTF-8
+
         scrolling:
           history: 0
+
         window:
           opacity: 0.9
           dynamic_title: true
@@ -1502,12 +1684,15 @@
           position:
             x: 0
             "y": 0
+
         colors:
           transparent_background_colors: true
+
         cursor:
           style:
             blinking: Always
             shape: Block
+
         hints:
           enabled:
             - regex: '[^ ]+\.rs:\d+:\d+'
@@ -1520,6 +1705,7 @@
             - action: SpawnNewInstance
               key: Return
               mods: Control|Shift
+
         font:
           size: 10.0
           bold:
@@ -1535,9 +1721,12 @@
             family: UbuntuSansMono Nerd Font
             style: Regular
 
-
     gh:
-      config:
+      config: |
+        {{_gh.config|to_yaml}}
+
+    _gh:
+      config: |
         version: "1"
 
         # What protocol to use when performing git operations. Supported values: ssh, https
@@ -1561,9 +1750,417 @@
         browser: firefox
 
         aliases:
+
+          tmux.buffer.grep: |
+            !tmux capture-pane -p -S - | eval 'grep -- '
+
+          tmux.buffer.dump: |
+            !tmux capture-pane -p -S -
+
+          grep.tmux.buffer: |
+            !eval 'gh tmux.buffer.grep $@'
+
+          clear.deploy_keys: '!gh repo deploy-key list --jq ''.[]|.id'' --json ''id'' | xargs -I DEPLOY_KEY gh repo deploy-key delete -- DEPLOY_KEY'
+          rg: '!env NO_COLOR=1 rg --hidden --no-ignore --no-ignore-dot --no-ignore-exclude --no-ignore-files --no-ignore-global --no-ignore-messages --no-ignore-parent --no-ignore-vcs --no-config  --files-with-matches -- $@'
+          fd: '!env NO_COLOR=1 fd --one-file-system -uuu -- $@'
+          pass.ls: '!pass git ls-files | sed s/.gpg// | grep -- "${@:-.}"'
+          cat: '!bat -- $@'
+          pass: '!exec pass git ls-files -z | sed -zE ''s#\.gpg\n?#\n#g'''
+          search.hosts: '!ssh $(gh cfg ssh.hammer) -- "command hammer --output=json host list --per-page 9999 --search ''$@''" | command jq'
+          tmux.pipe.pane: '!tmux pipe-pane -I "$@"'
+          tmux.send.pipe: '!xargs ${@:+--arg-file="$@"} -r0 tmux send'
+          hide: '!rename -v  -- '''' ''.'' "$@"'
+          hide.preview: '!rename --no-act --verbose  -- '''' ''.'' "$@"'
+          ansible.vault.view: '!ansible-vault view $1'
+          ansible.vault.encrypt: '!ansible-vault encrypt $1'
+          ansible.vault.decrypt: '!ansible-vault decrypt $1'
+          ansible.vault.encrypt-string: '!ansible-vault encrypt $1'
+          ansible.vault.decrypt-string: '!ansible-vault decrypt $1'
+          vault.view: '!ansible-vault view $1'
+          vault.encrypt: '!ansible-vault encrypt $1'
+          vault.decrypt: '!ansible-vault decrypt $1'
           co: pr checkout
-          gists: gist ls
+          switch: auth switch
           repos: '!NO_COLOR=1 gh repo list --json nameWithOwner| jq -rcM ''.[][]'''
+          clone: repo clone
+          gists: gist ls
+          last: '!exec tail -n1 $@'
+          last.word: '!awk ''BEGIN{FS="[\n\t\0[:space:][:punct:]]"}END{print $NF}'''
+          ls: '!exa --git -la -- $@'
+          clean.output: tr --squeeze-repeats '\n'
+          pass2vault: '!pass $1 | xargs ansible-vault --vault-password-file $(gh cfg ansible.password-file.vault) encrypt_string'
+          mktemp: '!command mktemp --directory /dev/shm/.XXXXXXXXXXXXXX'
+          tmux.send.secret-file: |
+            !pushd $(gh mktemp)
+            gh tmux-send-file
+            tmux send "popd" Enter; sleep 1
+            tmux send 'find "$OLDPWD"/ -not -type d -exec shred -uv {} \;' Enter; sleep 1
+          ldap.search: |
+            !
+            read -r common < <(gh cfg ldap.args)
+            case "$*" in
+            *=*) command ldapsearch "$common" "$@";;
+            *)   case $# in
+            0) command ldapsearch "$common" name=$(hostname --short)
+            command ldapsearch "$common" name=${USER:$(command id --user --name)}
+            ;;
+            esac
+            esac
+          tmux.send.file: |-
+            !name="$(realpath $1)"
+            short="$(basename $1)"
+            EOF="__${short^^}_EOF"
+            if ! [[ $TMUX_PANE ]]
+            then
+            tmux send "reset" Enter
+            tmux send "ls -l" Enter
+            base64 "$name" | `# *** SED BEGINNING ***` sed -zE 's#.*#\n\n base64 --decode << '"${EOF}"' | tee '"${short}"'\n\0\n'"${EOF}"'\n#g' `# *** SED END ***` |
+            xargs -r0 tmux send
+            fi
+            echo
+          fzf.menu-loop-TODO: |-
+            while true; do
+            while read input; do
+            case "$input" in
+            @exit) exit
+            esac
+            done < <(gh cfg tmux.default-opts| xargs fzf)
+              done
+          tmux.clip-out: '!tmux pipep -I "!wayland=\"wl-paste\";x11=\"xclip -out\";${!XDG_SESSION_TYPE}"'
+          stdin2gh.alias: '!grep -Poz "\n[^#]+" -- ${@:-} | tr --squeeze-repeats \\n | tr \\n \;'
+          ansible.doc: '!stdbuf -oL ansible-doc --list | rg --line-buffered -o -- ''^\S+'' | env - rg "${@:-.}"'
+          update.environment: '!make -C ${HOME}/Documents/Projects/ENV/'
+          wlsunset: '!systemd-run --user --unit wlsunset wlsunset -t 3000 -T 3100'
+          run.user: '!systemd-run --user "$@"'
+          truncate: '!colrm ${COLUMNS:-$(tput cols -T ${TERM:-xterm})}'
+          trunc: '!gh truncate "$@"'
+          cfg.add: '!for n; do; gh cfg --add "$(gh cfg cfg.selected)" "${n}" ; done'
+          cfg.refresh.env: '!gh cfg cfg.env SWAYSOCK=/run/user/$(id -u)/sway-ipc.$(id -u).$(pgrep --exact sway).sock'
+          install: |-
+            !command install -DT "${1/-/\/dev/stdin}" "${2}"
+            "0": >-
+              !command tr "${1:-\n}" "\0"
+          swap: '! cd "$(env -C ~/Projects/ ls -1 | fzf --reverse --max-lines 7 --header=Goto\ project)"'
+          p: swap
+          list.windows: '!command swaymsg -t get_tree | command jq ''.'''
+          rofi: '!command rofi -show combi $@'
+          yj: '!command ~/go/bin/yj -yj'
+          jj: '!command ~/go/bin/yj -jj'
+          tt: '!command ~/go/bin/yj -tt'
+          yy: '!command ~/go/bin/yj -yy'
+          jy: '!command ~/go/bin/yj -jy'
+          _precmd: '!git config --get-regexp ^zsh.precmd'
+          cfg.regexp: '!git config --get-regexp "$@"'
+          cfg.grep: cfg-regexp
+          _zsh: ^zsh\\.
+          _fzf: ^fzf\\.
+          _fd: ^fd\\.
+          _rg: ^rg\\.
+          dhcp.leases: '!ssh gh -- "cat /var/lib/dhcp/dhcpd.leases"'
+          _tmux_send_file: '!git config --get ansible.vault-pass-file'
+          extra.vars: '!gh pass-ls $(gh cfg provision.regex) | sed -E ''s#.*#\0: ''\''''$(pass \0)''\''''#'' | sed -zE ''s#.*#cat<<__EOF__\n\0__EOF__\n#'' | bash'
+          pass2yaml: "!if [[ $@ ]]; then\n command gh pass-ls \"$*\" |\n   command sed -E  's#.*#\\0: $(pass \\0)#' |\n   command sed -zE 's#.*#cat<<__EOF__\\n---\\n\\0...\\n__EOF__\\n#' |\n   command /bin/bash \n fi\n"
+          _tpm_pass: '!git config --get provision.tpm.pass'
+          bootstrap: |
+            !gh tmux-send-file $(gh _tmux_send_file)
+            tmux send 'chmod +x *.sh' Enter
+            sleep 1
+
+            tmux send "clear" Enter Enter Enter
+            pushd $(mktemp -d /dev/shm/.XXXXXXXXXXXXXXXX)
+            pass $(gh _tpm_pass) > deleteme
+            tmux send 'pushd $(mktemp -d /dev/shm/.XXXXXXXXXXXXXXXX)' Enter
+            sleep 1
+
+            gh tmux-send-file deleteme
+            sleep 1
+
+            tmux send 'cat deleteme | /root/tpm2-rw.sh' Enter
+            sleep 1
+          debug: |
+            !DEFAULT_DEBUGGER_SCRIPT="${HOME}/.local/bin/__debugger"
+
+            enabled() {
+            command gh cfg --bool debug.enabled "$*"
+            }
+
+            case $1 in
+            run|start)
+            exec $(command gh cfg debug.debugger)
+            ;;
+            on|up|enable|yes|true|1)
+            enabled true
+            ;;
+            off|down|disable|no|false|0)
+            enabled false
+            ;;
+            *)
+            if test -s "${1}"; then
+            read -r real < <(realpath "${1}")
+            command gh cfg debug.script "${real}"
+            enabled true
+            fi
+            esac
+
+            cat <<'DEBUGGER_SCRIPT_EOF' | gh install -
+            #!/usr/bin/env sh
+            set -o xtrace
+
+            export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(command id -u)/bus"
+            export WAYLAND_DISPLAY='wayland-1'
+
+            command notify-send "DEBUG" "args($#)$(@:+:'$*')"
+
+            source "$(command gh cfg debug.script)"
+
+            exit
+
+            DEBUGGER_SCRIPT_EOF
+          tmp: '!pushd $(mktemp -d /dev/shm/.XXXXXXXXXXX)'
+          edit: '!${EDITOR} $@'
+          _prefix_sed: '!command sed -E ''s#.*#''"${@}"''\0#'''
+          _prefix_sd: '! command sd ''^'' "${@}"'
+          _startswith_rg: '!env - NO_COLOR=1 rg -- "^$@"'
+          _startswith_grep: '!env - grep -P -- "^$@"'
+          _ext_fd: '!env - NO_COLOR=1 eval fd -e "$@"'
+          prefix: _prefix_sed
+          startswith: _startswith_grep
+          clean: '!sed -zE ''s/#[^\n]*\n?//g;s/\n+/\n/g;s/[[:space:]]*$//'''
+          igrep: LC_ALL=C grep -Pi -- "$@"
+          select: '!gh clean | LC_ALL=C grep -Pi -- "$@"'
+          pp: clean
+          pgrep: LC_ALL=C grep -P -- "$@"
+          toin: '!cat 2>&1'
+          err: "!cat >&2\n  "
+          facts: '!/opt/puppetlabs/bin/facter --json'
+          rpm: |
+            !bash "${HOME}"/Documents/Projects/script/needs-work/generate-repo-files.sh "$@"
+          status: '!PAGER=cat command nmcli'
+          backup: '!command /usr/bin/tar -C "${PWD}" --auto-compress -cf ${HOME}/Backup/${PWD//\//-}_BACKUP_`date -I`.tar.bz2 ./'
+          git.filehist: log --format=oneline --
+          adopt: '!echo TODO set gh profile as git remote if unset'
+          each: '!gawk --assign cmd="${@//:/\$}" ''{system("echo "cmd)}'' '
+          git.clean.upstream: '!sed -E ''/<{7}/,/={7}/d;/>{7}/d'' config'
+          pkl: '!~/.local/bin/pkl "$@"'
+          restore: '!rsync --dry-run --files-from - --relative --recursive -av -- 9Ooldhome/ $HOME/'
+          pipx: '!~/.local/bin/pipx "$@"'
+          ldap.delete: '!command ldapsearch -LLL -oldif_wrap=no name=${1}\* dn 2>/dev/null | sed -E ''/dn: /dev/stderr'' | awk ''/^[a-z]\w+: /{print $NF;exit}'' | xargs -r echo ldapdelete'
+          cp: |-
+            !exec env -C ~/ cp --parents -- "$@"
+          truncate: >-
+              !grep -Eo -- '^.{'`tput cols`'}'
+          i: >-
+            !wl-copy
+          o: >-
+            !wl-paste
+          _zshrc: |
+            !cat <<'EOF'
+            plugins+=($(gh cfg --get-all zsh.plugins))
+            . $ZSH/custom/_humioctl
+            EOF
+          zsh.plugins: |
+            !fd  -d1 . $ZSH/plugins -X printf '%s\n' {/} | sort
+          hammer: "!echo TODO ssh $(gh cfg ssh.hammer) -- \n"
+          hammer.rebuild: |
+            !echo TODO
+          encrypt.tpm2: |
+            !
+            if [ -t 0 ]; then
+            case $(stat -c '%F' "$1" 2>/dev/null) in
+            *file*)
+            sudo clevis encrypt tpm2 '{}' < "$1"
+            ;;
+            *)
+            sudo clevis encrypt tpm2 '{}' <<< "$1"
+            esac
+            else
+            sudo clevis encrypt tpm2 '{}'
+            fi
+          decrypt.tpm2: "!if [ -t 0 ]; then\n  case $(stat -c '%F' \"$1\" 2>/dev/null) in\n  *file*) sudo clevis decrypt tpm2  < \"$1\"   ;;\n  *)      sudo clevis decrypt tpm2  <<< \"$1\" ;;\n  esac\nelse\n  sudo clevis decrypt tpm2 \nfi\n"
+          curl.config.reset: |
+            !command /usr/bin/cat <<.curlrc_EOF | tee >(install -m 0600 -DTv /dev/stdin ~/.curlrc)
+            .curlrc_EOF
+          _gh_install_from_stdin_test: |
+            !gh _gh_install_from_stdin "$(mktemp)" <<__EOF__
+            become_password_file =     %(ansible.password-file.become)
+            connection_password_file=  %(ansible.password-file.connection)
+            vault_password_file=       %(ansible.password-file.vault)
+            __EOF__
+          _gh_install_from_stdin: |
+            !trap 'bat "$cfg"' EXIT
+            cfg="${cfg:-${1}}"; shift
+            pushd $(mktemp -d /dev/shm/.XXXXXXXXXXXXXX)
+            tee FILE
+            cat FILE |
+              sed -z 's|.*|\ncat<<__EOF__\n&\n__EOF__\n\n|;s#%(#$(gh cfg.getc #g' |
+              tee >(sponge FILE)
+            bash FILE | tee >(install -m 0600 -DTv -- /dev/stdin "$cfg")
+            shred -uv FILE
+          _cfg_interpolate: |-
+            !command /usr/bin/sed -z
+              's|.*|\ncat<<__EOF__\n&\n__EOF__\n\n|;s#%(#$(gh cfg.getc #g' |
+              command /usr/bin/bash
+          cfg.get: |
+            !set -x
+            git config --global --default="'$@' is unset\!" --get ${@-.}
+          cfg.get-all: |
+            !set -x
+            git config --global --get-all ${@-.}
+          cfg: |
+            !${DEBUG:+set -x};
+            # env --chdir=$(gh _cfg_helper)
+            pushd -- $(gh _cfg_helper)
+            export PAGER=cat
+            git config --no-system --no-global --no-worktree --no-local --file .gitconfig "${@}"
+
+          emacsclient: |
+            !exec xargs -0 emacsclient --eval <<ELISP_EOF
+            (with-temp-buffer (switch-to-buffer (window-buffer (nth 0 (window-list))))
+              ${@:-(buffer-file-name)})
+            ELISP_EOF
+
+          ansible.config.show: |
+            !bat ~/.ansible.cfg
+          ansible.config.reset: |
+            !gh _gh_install_from_stdin "$HOME/.ansible.cfg" <<__EOF__
+            [defaults]
+            nocolor=False
+
+            transport=ssh
+            host_key_checking = False
+
+            become_password_file =     %(ansible.password-file.become)
+            connection_password_file=  %(ansible.password-file.connection)
+            vault_password_file=       %(ansible.password-file.vault)
+
+            [connection]
+            pipelining=True
+
+            [paramiko_connection]
+            host_key_auto_add=True
+            look_for_keys=True
+            __EOF__
+          systemd.autostart: |
+            !gh _gh_install_from_stdin "$HOME/.config/systemd/user/autostart@.service" <<__EOF__
+            [Service]
+            EnvironmentFile=${HOME}/.local/share/%P/env
+            EnvironmentFile=-${HOME}/.local/share/%P/environ
+            __EOF__
+
+            systemd --user daemon-reload
+          projects: |
+            !command find ~/Projects -type d -name .git -printf '%h\n'
+          paste.to.pass: |
+            !wl-paste | pass insert --multiline tmp/${EPOCHSECONDS:-$(date +%s)}
+          paste.last: |
+            !gh pass-ls ^tmp/ | head -1 | xargs pass
+          humio.refresh-token-file: '!pass humio_token | env -C ~/.humio install -v -m 0600 /dev/stdin .token'
+          humio.search: '!~/opt/bin/humioctl search --token-file ~/.humio/.token $(gh cfg humio.repository) "$@"'
+          humio.init: |
+            !envsubst <<'.humio/config.yaml_EOF' | tee >(install -vDT -m 0600 /dev/stdin ~/.humio/config.yaml)
+            ---
+            address: https://humio.intern.sparebank1.no
+            token_file: $HOME/.humio/.token
+            ...
+            .humio/config.yaml_EOF
+          scrape.codeblocks: '!curl --silent -L "$@" | jq -Rr ''gsub("</?span[^>]*>";"")|match("<code [^>]+>(?<code>.*)</code>")'' | jq -r ''..|try select(.name)|{(.name):(.string)}'' | jq -r ''try select(.code)'''
+          magic: |
+            !wayland=wl-paste
+            x11='xclip -out'
+            set - ${@:-$(command ${!XDG_SESSION_TYPE})}
+
+            while [[ $@ ]]; do
+            case "$1" in
+            *//github.com/*|*//gitlab.com/*)
+            dir="${HOME}/".local/share/git
+            mkdir -p -- "${dir}
+            command git -C "${dir}" clone --depth 1 "$1"
+            ;;
+
+            *)
+            builtin echo -- "ignored: $@"
+            esac
+            shift
+            done
+
+            command ${!XDG_SESSION_TYPE} >&2
+          new: |
+            !# TODO print templates for code projects
+            # ..... docker-compose.yml, Makefile, .gitignore...
+            case "$1" in
+            *//github.com/*|*//gitlab.com/*)
+            dir="${HOME}/".local/share/git
+            mkdir -p -- "${dir}
+
+            ;;
+
+            *)
+            builtin echo -- "ignored: $@"
+            esac
+            shift
+          empty: |
+            !find "${PWD}" -type f -writable -empty -print0 2>/dev/null | if [[ $@ ]]; then grep -wz -- "$@"
+            else cat
+            fi | xargs -0rn1
+          with.gron: |
+            !jq -cM '.' | gron | (
+              eval "$@"
+            ) | gron -u
+          _parent_process_code: |
+            printf 'grep -Po \x(?<=Ppid:\t)\s+ /proc/$$/status'
+          _snippets: |
+            !echo TODO _snippets
+          _systemd_run_user: |
+            !systemd-run --user "$@"
+          _systemd_run_user_pipe_to_file: |
+            !echo TODO gh _systemd_run_user -p StandardOutput="${1}" --pipe
+          _gh_pager: |
+            !gh _systemd_run_user_pipe_to_file
+            bat --wrap never --file-name "$(tr \\0 ' ' < /proc/${PPID}/cmdline)"
+          _tmux_prompt: |
+            !env
+            set
+            echo TODO
+          _zsh_prompt: |
+            !zsh -c 'print -P $PS1'
+          git.repo.clone.private.work: |
+            !env -C $(gh cfg cfg.work) repo clone
+          git.repo.clone.private.home: |
+            !env -C $(gh cfg cfg.work.dir) repo clone
+          clip: |
+            !declare subcommand
+            subcommand=$1; shift
+
+            case $subcommand in
+            add)
+            (tee >(pass insert --multiline _/last) >(pass insert --multiline _/${EPOCHSECONDS})) &>/dev/null
+            gh pass.ls ^_
+            ;;
+            pop)
+            {
+            gh pass.ls ^_ |
+            grep -vw  -- last |
+            tail -1 |
+            xargs -d\\n -rn1 -i pass mv {} _/pop
+            pass _/pop
+            pass --clip _/pop
+            pass rm --force _/pop
+            } &>/dev/null
+            ;;
+
+            ls)
+                gh pass.ls ^_ |
+            ;;
+            esac
+          add.gist: '![[ $@ ]] || { echo "Filename required" >&2 ; exit; }; filename=$(systemd-escape --path "$@"); exec gh gist create - --filename "${filename} --private'
+          add.ls: |
+            !echo TODO
+          add.gists: |
+            !if [ -t 0 ]; then
+              for n; do gh add.gist < "$n"; done &
+            else
+              gh add.gist "$@"
+            fi
           transform.html.to.json: '!exec ~/go/bin/pup ''json{}'''
           transform.json.to.yml: '!exec yj -jy'
           transform.yaml.to.json: '!exec yj -yj'
@@ -1618,7 +2215,6 @@
           getPubclicIP: |
             !exec curl --silent 'https://ifconfig.co/json'
           first: '!exec head -n1 $@'
-          last: '!exec tail -n1 $@'
           xcat: '!exec xargs cat'
           json2pkl: '!VERSION=1.0.2; URL=package://pkg.pkl-lang.org/pkl-pantry/pkl.pipe@${VERSION}#/json.pkl; exec pkl eval "$URL" -x "${@:-pipe}"'
           toml2pkl: '!yj -t | gh json2pkl "$@"'
@@ -1642,12 +2238,6 @@
                 touch "$i"
               fi
             done
-          cfg: |
-            !${DEBUG:+set -x};
-            # env --chdir=$(gh _cfg_helper)
-            pushd -- $(gh _cfg_helper)
-            export PAGER=cat
-            git config --no-system --no-global --no-worktree --no-local --file .gitconfig "${@}"
           _debug_cmdline: |
             !set -x
             xargs -n1 -0a /proc/${PPID}/cmdline
@@ -1738,11 +2328,6 @@
             stat ${XDG_RUNTIME_DIR}/deleteme/example.sock
             nc -U "${_}" <<< foo
             systemctl --user disable --now example.socket
-          emacsclient: |
-            !exec xargs -0 emacsclient --eval <<ELISP_EOF
-            (with-temp-buffer (switch-to-buffer (window-buffer (nth 0 (window-list))))
-              ${@:-(buffer-file-name)})
-            ELISP_EOF
           run: |
             !systemd-run --user "$@"
           _jq_example_from_stackexchange: |-
@@ -1765,7 +2350,6 @@
             done < <(fzf)
           clean.empty.files: |
             exec rm -iv -- $(find -maxdepth 1 -type f -empty)
-          pass: '!exec pass git ls-files -z | sed -zE ''s#\.gpg\n?#\n#g'''
           import-config-force: |-
             !exec realpath --relative-base=$HOME/ "$@" |
               rsync -av --files-from=- --relative -- "$HOME"/ ~/Projects/config/;
@@ -1778,27 +2362,17 @@
             !eval sed -E 's#^#${@:-}#'
           ___: '!sed -E ''s/[[:space:]](copy|file|service)://'''
 
+
   pre_tasks:
 
-    # - name: Retry combined with a loop
-    #   uri:
-    #     url: "https://{{ item }}.ansible.com"
-    #     method: GET
-    #   register: uri_output
-    #   with_items:
-    #   - "www"
-    #   retries: 2
-    #   delay: 1
-    #   until: "uri_output.status == 200"
-
     - name: jq
-      when: no
       vars:
         q: >-
           .[]|
             with_entries(.key == "{{item_type}}")|
             select(.)
       register: jq
+      when: COMMENT
       loop:
         - rpm
         - cargo
@@ -1830,7 +2404,7 @@
             {% for _sitename, _user in _sites.items() %}
             {% for _username, _repositories in _user.items() %}
             {% for _reponame in _repositories %}
-            {{ansible_user_dir}}/opt/{{_sitename}}/{{_username}}: https://{{_sitename}}.{{_dom}}/{{_username}}/{{_reponame}}.git
+            {{lookup('env', 'HOME')}}/opt/{{_sitename}}/{{_username}}: https://{{_sitename}}.{{_dom}}/{{_username}}/{{_reponame}}.git
             {% endfor %}
             {% endfor %}
             {% endfor %}
@@ -1852,13 +2426,23 @@
     #   ansible.builtin.lineinfile:
     #     create: yes
     #     path: >-
-    #       {{ansible_user_dir}}/.zshenv
+    #       {{lookup('env', 'HOME')}}/.zshenv
     #     state: present
     #     line: >-
     #       path+=({{script_path}})
     #     validate: >-
     #       /bin/zsh -c "source %s"
 
+    # - name: Retry combined with a loop
+    #   uri:
+    #     url: "https://{{ item }}.ansible.com"
+    #     method: GET
+    #   register: uri_output
+    #   with_items:
+    #   - "www"
+    #   retries: 2
+    #   delay: 1
+    #   until: "uri_output.status == 200"
 
     # - name: >-
     #     enable hardware acceleration for video playback
@@ -1871,5 +2455,27 @@
     #       - libavcodec-free
     #       - mesa-va-drivers
     #       - libva-intel-hybrid-driver
+
+    # - name: >-
+    #     add common paths to users zshenv
+    #   loop_control:
+    #     extended: true
+    #     loop_var: path
+    #   with_fileglob:
+    #     - {{lookup('env', 'HOME')}}/*/bin
+    #     - {{lookup('env', 'HOME')}}/.*/bin
+    #     - {{lookup('env', 'HOME')}}/.local/share/pipx/venvs/*/bin
+    #     - {{lookup('env', 'HOME')}}/.emacs.d/bin
+    #     - {{lookup('env', 'HOME')}}/bin
+    #   ansible.builtin.lineinfile:
+    #     create: yes
+    #     path: >-
+    #       {{lookup('env', 'HOME')}}/.zshenv
+    #     state: present
+    #     insertafter: >-
+    #       ^path+=({{ansible_loop.previtem|default(omit)}})
+    #     line: >-
+    #       path+=({{path}})
+    #     validate: /bin/zsh -c source %s
 
 ...
