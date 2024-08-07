@@ -24,8 +24,6 @@
 - hosts: all
   connection: local
   gather_facts: no
-  vars:
-
   handlers: &handlers
     - name: ====FULL STOP====
       block: &full_stop
@@ -218,7 +216,7 @@
       when: COMMENT
       vars:
         queries: >-
-          {{vars['items']|map('list')|flatten|unique }}
+          {{vars['items']|map('list')|flatten|unique}}
 
         gq: >-
           keys(@.items[:3])
@@ -244,13 +242,16 @@
 
         _def: >-
           ********************************************************************************
+
     - block:
       - <<: *full_stop
       when: COMMENT
 
-    - user: name=geir uid=1000 shell=/bin/zsh groups=users,wheel
-
-    - user: name=nemo uid=9000 shell=/bin/zsh groups=adm
+    - name: Users
+      when: COMMENT
+      block:
+      - user: name={{localuser.name|default('abc')}} uid={{localuser.uid|default(1000)}} shell={{localuser.shell|default('/bin/bash')}} groups=users,wheel
+      - user: name=nemo uid=9000 shell=/bin/zsh groups=adm
 
     - name: catppuccin / (TODO zsh-users)
       vars:
@@ -265,7 +266,7 @@
         with_dict: "{{git_repos}}"
         <<: *loop
 
-      - cron: name="{{item.value}}" job="git pull -C {{item.key}} --rebase --autostash" minute="*/{{cron.interval|default('5')}}" user="{{ lookup('ansible.builtin.env', 'USER') }}" backup=yes
+      - cron: name="{{item.value}}" job="git pull -C {{item.key}} --rebase --autostash" hour="7-21" minute="*/{{cron.interval|default('5')}}" user="{{ lookup('ansible.builtin.env', 'USER') }}" backup=yes
         become: no
         with_dict: "{{git_repos}}"
         <<: *loop
@@ -1086,10 +1087,412 @@
 
       #       fzf_default_opts=' --exact --bind '\''ctrl-s:toggle-all'\'' --multi '; export fzf_default_opts
 
-      #       plugins={{ items|qjson_query('[?zsh_plugin].*.name[]')|join(' ') }}
+      #       plugins={{ items|json_query('[?zsh_plugin].*.name[]')|join(' ') }}
       #       source $ZSH/oh-my-zsh.sh
 
       # -*- mode: conf -*-
+
+      - __dotfile:
+          name: sway config (work)
+          path: >-
+            {{lookup('env', 'HOME')}}/.config/sway/config
+          validate: 'true %s'   # FIXME
+          content: |
+            # -*- mode: conf -*-
+
+            # # ====================================XXXX==YYYY===
+            output eDP-1 resolution 1920x1080 pos    0     0  scale 2
+            # # ====================================XXXX==YYYY===
+
+            set $keyboard_layout         us,no
+            set $laptop_screen_dpi_scale 2
+
+            floating_modifier     Mod1
+
+            set $META             Mod1
+
+            set $SUPER            Mod3
+            set $HYPER            Mod4
+
+            set $MOD              Mod4
+
+            set $backtick         grave
+
+            set $launcher_mod     Mod4
+            set $alt_tab_mod      Mod1
+            set $fullscreen_mod   Mod1
+            set $floating_mod     Mod1
+
+            set $launcher_key     d
+            # set $show_desktop
+            # set $show_www
+            # set $show_chat
+            set $default_mod_pluss_number scratchpad show
+
+            set $numkeys_mod Mod1
+
+            # set $numkey1 [floating] move scratchpad
+            # set $numkey2 [floating] move scratchpad; [floating app_id=(?i)Alacritty] scratchpad show; mark tty
+            # set $numkey3 [floating] move scratchpad; [floating app_id=(?i)FireFox] scratchpad show; mark www
+            # set $numkey4 [floating] move scratchpad; [app_id=(?i)Microsoft.Edge] scratchpad show; mark msg
+
+            set $numkey1 [floating] move scratchpad
+            set $numkey2 [floating app_id=(?i)Alacritty] scratchpad show; mark tty
+            set $numkey3 [floating app_id=(?i)FireFox] scratchpad show; mark www
+            set $numkey4 [floating app_id=(?i)Microsoft.Edge] scratchpad show; mark msg
+
+            bindsym Mod1+Space     exec rofi -show combi
+
+            bindsym Mod1+Mod4+c reload
+            bindsym Mod1+Mod4+r reload
+
+            gaps inner 0
+            gaps outer 0
+
+            font pango:terminus 1
+
+            # remove border
+            default_border            none
+            smart_borders             on
+
+
+
+            # include "chassis/$(hostnamectl chassis)/bindings"
+            include "chassis/laptop/bindings"
+            include "theme/default"
+            include "font/*"
+
+            bindsym $MOD+$backtick exec rofi -show window
+
+            # Alt+Tab window switching
+            bindsym $alt_tab_mod+Tab       focus right
+            bindsym $alt_tab_mod+Shift+Tab focus left
+
+            bindsym $fullscreen_mod+Return   fullscreen toggle
+
+            bindsym $floating_mod+$MOD+f   floating toggle
+
+            bindsym $MOD+1 [floating]
+
+            bindsym $numkeys_mod+1 $numkey1
+            bindsym $numkeys_mod+2 $numkey2
+            bindsym $numkeys_mod+3 $numkey3
+            bindsym $numkeys_mod+4 $numkey4
+            bindsym $MOD+6 nop
+
+
+            for_window [class=(?i)emacs]  floating disable
+            for_window [app_id=(?i)emacs] floating disable
+            for_window [app_id=(?i)org.qutebrowser.qutebrowser|Microsoft.Edge|FireFox] floating enable
+
+
+            for_window [floating app_id=(?i)Alacritty] {
+            resize set    50 ppt 100 ppt
+            move position 50 ppt   0 ppt
+            }
+
+            for_window [floating con_mark=tty] {
+            mark --remove tty
+            resize set    50 ppt 100 ppt
+            move position 50 ppt   0 ppt
+            }
+
+            for_window [floating con_mark=msg] {
+            mark --remove msg
+            resize set   50 ppt 100 ppt
+            move position 0 ppt   0 ppt
+            }
+
+            for_window [floating con_mark=www] {
+            mark --remove www
+            resize set   50 ppt 100 ppt
+            move position 0 ppt   0 ppt
+            }
+
+
+            for_window [con_mark=.*left.*]  move position  1 ppt 0 ppt
+            for_window [con_mark=.*right.*] move position 50 ppt 0 ppt
+
+
+            bar {
+            output eDP-1
+
+            # strip_workspace_numbers yes|no
+            strip_workspace_numbers yes
+
+            # strip_workspace_name yes|no
+            strip_workspace_name yes
+
+            swaybar_command waybar
+            position top
+
+            # mode hide
+            modifier $MOD
+            }
+
+
+            exec_always --no-startup-id {
+            dbus-update-activation-environment
+            dbus-update-activation-environment --systemd WAYLAND_DISPLAY DBUS_SESSION_BUS_ADDRESS DISPLAY XAUTHORITY
+            }
+
+
+            input type:keyboard {
+            xkb_options   caps:hyper,grp:rctrl_toggle
+            xkb_layout    $keyboard_layout
+            # default:    250
+            repeat_delay  250
+            # default:    45
+            repeat_rate   20
+            }
+
+
+            input type:touchpad {
+            dwt              enabled
+            tap              enabled
+            natural_scroll   enabled
+            middle_emulation enabled
+            # disable mouse acceleration (enabled by default; to set it manually, use
+            # "adaptive" instead of "flat")
+            accel_profile "flat"
+            # set mouse sensitivity (between -1 and 1)
+            pointer_accel 0.5
+            }
+
+            bindsym Mod3+d nop;
+            bindsym Mod3+1 nop;
+            bindsym Mod3+2 nop;
+            bindsym Mod3+3 nop;
+            bindsym Mod3+4 nop;
+            bindsym Mod3+5 nop;
+            bindsym Mod3+6 nop;
+            bindsym Mod3+8 nop;
+            bindsym Mod3+9 nop;
+
+            # bindsym Mod4+d nop;
+            # bindsym Mod4+1 nop;
+            # bindsym Mod4+2 nop;
+            # bindsym Mod4+3 nop;
+            # bindsym Mod4+4 nop;
+            # bindsym Mod4+5 nop;
+            # bindsym Mod4+6 nop;
+            # bindsym Mod4+8 nop;
+            # bindsym Mod4+9 nop;
+
+
+
+      - dotfile:
+          name: .bindings.el
+          path: >-
+            {{lookup('env', 'HOME')}}/.config/doom/.bindings.el
+          validate: 'true %s'   # FIXME
+          content: |
+            (map! :map global-map
+            "C-t" nil)
+
+            (map!
+            :map global-map
+            :after projectile
+
+            "s-SPC p r"          'projectile-run-project
+            "s-SPC p c"          'projectile-run-project
+            "s-SPC p s"          '+vertico/project-search
+            "s-SPC p p"          'project-switch-project)
+
+            (map! :map global-map
+            :prefix nil
+            ;; "C-<return>"           (cmd!! (shell-command-to-string "gh ,"))
+            "C-<return>"           (cmd! (shell-command-to-string "gh ,"))
+            "C-="                  'er/expand-region
+
+            "s-/"                  'occur
+
+            "s-t"                  'treemacs
+
+            "M-]"                  'next-error
+            "M-["                  'previous-error
+
+            "s-l"                  'dired-jump
+
+            "s-p"                  nil
+
+            "M-s-e"                'windmove-swap-states-right
+            "M-s-k"                'doom/kill-this-buffer-in-all-windows
+            "M-s-n"                'split-window-vertically
+
+            "M-s-q"                'windmove-swap-states-left
+
+            "s-]"                  'undo-redo
+            "s-["                  'undo
+
+            "s-."                  'mc/mark-all-like-this
+
+            "C-."                  'mc/mark-next-like-this
+
+            "s-SPC l"              'locate
+
+            "s-s"                  'windmove-down
+            "s-w"                  'windmove-up
+            "M-s-s"                'windmove-swap-states-down
+            "M-s-w"                'windmove-swap-states-up
+
+            "s-<backspace>"        'delete-pair
+            "s-<return>"           'consult-bookmark
+
+            "s-c"                  'eros-eval-last-sexp
+            "s-e"                  'windmove-right
+            "s-i"                  'ibuffer-jump
+            "s-k"                  'delete-window
+            "s-m"                  'exchange-point-and-mark
+            "s-n"                  (cmd!! (split-window-sensibly))
+            "s-q"                  'windmove-left
+            "s-r"                  'consult-recent-file
+
+            )
+
+
+
+            (map! :map global-map
+            :prefix "s-SPC"
+
+            "q"                 'delete-other-windows
+            "r"                  nil
+            "x"                 'doom/open-scratch-buffer
+            "TAB"               'org-capture-goto-last-stored
+            "n"                 'yas-new-snippet
+
+            (:prefix "d"
+            "m"        'doom/help-modules)
+
+            (:prefix "s-SPC"
+            "SPC"    (cmd!! (message "TODO refresh-hard"))
+            "s-SPC"  (cmd!! (message "TODO refresh-light")))
+
+            ;; (:prefix "i" "k" '+insert-key!)
+
+            (:prefix "t"
+            "w"        'writeroom-mode
+            "l"        'global-display-line-numbers-mode
+            "t"        'toggle-truncate-lines)
+
+            (:prefix "c"
+            "c"        'doom/goto-private-config-file
+            "i"        'doom/goto-private-init-file
+            "p"        'doom/goto-private-packages-file)
+
+            (:prefix "r"
+            "r"        'recentf
+            "R"        'emacs-repl))
+
+            (map! :map  global-map
+            (:mode +ansible-yaml-mode
+            (:prefix "s-SPC"
+            (:prefix "h"
+            "a"        'ansible-doc))))
+
+            (map!
+
+            (:map (+ansible-yaml-mode-map)
+            "C-c C-c"              'compile
+            "C-c c"                'ansible-doc
+            "s-h"                  'ansible-doc)
+
+            (:map (projectile-mode-map makefile-gmake-mode-map sh-map)
+            "C-c C-c"              'projectile-run-project)
+
+            (:mode python-mode-map
+            "C-c C-c"              'python/C-c-C-c)
+
+            (:after magit
+            "s-g"                'magit-status
+            (:map magit-mode-map
+            "s-g" nil))
+
+            (:map dired-mode-map
+            "r"                    'dired-do-rename-regexp
+            "/"                    'dired-mark-files-regexp
+            "TAB"                  'dired-hide-details-mode
+            ". ."                  'dired-up-directory)
+
+            (:after undo-fu-mode
+            "s-["                'undo
+            "s-]"                'undo-redo)
+
+            (:after dired-mode
+            "s-l"                'dired-jump)
+
+            (:after treemacs-mode
+            "s-t"                'treemacs)
+
+            (:after vterm
+            "s-\\"               '+vterm/toggle
+            :prefix "s-SPC"
+            "`"                  '+vterm/here)
+
+            (:after org-roam-mode
+            "s-SPC w"            'widen
+            "s-SPC s"            'org-narrow-to-subtree)
+
+            (:after org-roam-mode
+            "C-c n l"            'org-roam-buffer-toggle
+            "C-c n f"            'org-roam-node-find
+            "s-SPC SPC"          'org-roam-node-find
+            "C-c n g"            'org-roam-graph
+            "C-c n i"            'org-roam-node-insert
+            "C-c n c"            'org-roam-capture
+            "C-c n n"            'org-roam-dailies-capture-today
+            "C-c n j"            'org-roam-dailies-capture-today)
+
+            (:map python-mode-map
+            "C-c C-c"              'python/C-c-C-c)
+
+            (:map dired-mode-map
+            "G"                    'beginning-of-buffer
+            "/"                    'dired-mark-files-regexp
+            "D"    nil
+            "q"                    'doom/kill-this-buffer-in-all-windows
+            (:prefix "g"
+            "g"           'end-of-buffer)
+
+            (:prefix "D"
+            "D"           'dired-do-delete))
+
+            (:after flymake
+            "s+-" nil
+            "s+=" nil)
+
+            (:after winner
+            "M-s-["              'winner-undo
+            "M-s-]"              'winner-redo)
+
+            ;; (:after flymake
+            ;;         "s+-"             'flymake-goto-prev-error
+            ;;         "s+="             'flymake-goto-next-error)
+
+            )
+
+
+            ;; (use-package! avy
+            ;;   :bind
+            ;;   ("s-SPC s-SPC m" . avy-copy-region)
+            ;;   ("s-SPC i" . avy-copy-line)
+            ;;   ("s-SPC s-SPC i" . avy-copy-region)
+            ;;   ("s-SPC s-SPC m" . avy-copy-region)
+            ;;   ("s-SPC g" . avy-goto-end-of-line))
+
+            ;; (use-package! multiple-cursors
+            ;;   :bind ("C-c m e" . mc/edit-end-of-lines)
+            ;;   ("C-c m e" . mc/edit-beginning-of-lines) ("s-SPC m m" . mc/mark-all-like-this-dwim) ("s-\\" . mc/mark-all-like-this-dwim) ("C-." . mc/mark-next-like-this) ("C-/" . mc/remove-fake-cursor) ("s-." . mc/mark-all-like-this-dwim))
+
+
+      - dotfile:
+          name: .fonts.el
+          path: >-
+            {{lookup('env', 'HOME')}}/.config/doom/.fonts.el
+          validate: 'true %s'   # FIXME
+          content: |
+            (setq
+              doom-font (font-spec :family "UbuntuSansMono Nerd Font Propo" :foundry "DAMA" :slant 'normal :weight 'regular :height 98 :width 'normal))
 
       - dotfile:
           name: tmux
